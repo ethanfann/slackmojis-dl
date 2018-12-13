@@ -1,15 +1,15 @@
 {
-  "name": "slackmojis_bulk_downloader",
+  "name": "slackmojis_downloader",
   "version": "1.0.0",
   "description": "Downloads all emojis from https://slackmojis.com",
-  "main": "index.js",
+  "main": "app.js",
   "author": "Ethan Fann",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.5.0",
+    "bluebird": "^3.5.3",
     "cheerio": "^1.0.0-rc.2",
-    "image-downloader": "^3.4.1",
-    "request": "^2.82.0",
+    "image-downloader": "^3.4.2",
+    "request": "^2.88.0",
     "request-promise": "^4.2.2"
   }
 }

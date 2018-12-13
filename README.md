@@ -1,6 +1,13 @@
 # slackmojis-downloader
 Downloads all emojis from https://slackmojis.com/
 
+## Usage
+```
+git clone https://github.com/ethanfann/slackmojis-downloader`
+cd slackmojis-downloader
+node app.js
+```
+
 ## Organization
 
 ```
