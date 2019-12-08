@@ -5,6 +5,7 @@ Downloads all emojis from https://slackmojis.com/
 ```
 git clone https://github.com/ethanfann/slackmojis-downloader
 cd slackmojis-downloader
+npm install
 node app.js
 ```
 
