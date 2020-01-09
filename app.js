@@ -18,7 +18,7 @@ request({
         $( this ).find('ul.emojis').children('li').each(function(index){
             let url = $( this ).find('a').attr('href').split('?')[0]
             emojis.push({
-                url: url,
+                url: 'https://slackmojis.com'+url,
                 dest: "Emojis/" + folder
             })
         })
