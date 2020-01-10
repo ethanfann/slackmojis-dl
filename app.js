@@ -16,7 +16,7 @@ request({
         let folder = $( this ).find('div.title').text().trim().replace(/\./g,' ')
 
         $( this ).find('ul.emojis').children('li').each(function(index){
-            let url = $( this ).find('a').attr('href').split('?')[0]
+            let url = $( this ).find('a').find('img').attr('src').split('?')[0]
             emojis.push({
                 url: url,
                 dest: "Emojis/" + folder
