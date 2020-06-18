@@ -19,7 +19,7 @@ request({
             let url = $( this ).find('a').find('img').attr('src').split('?')[0]
             emojis.push({
                 url: url,
-                dest: "Emojis/" + folder
+                dest: "emojis/" + folder
             })
         })
     })
