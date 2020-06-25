@@ -12,7 +12,7 @@ node app.js
 ## Organization
 
 ```
-Emojis  
+emojis  
 |  
 |-- Cat Emojis  
 |    |  
