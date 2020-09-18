@@ -1,15 +1,17 @@
 {
-  "name": "slackmojis_downloader",
-  "version": "1.0.0",
-  "description": "Downloads all emojis from https://slackmojis.com",
-  "main": "app.js",
-  "author": "Ethan Fann",
-  "license": "MIT",
-  "dependencies": {
-    "bluebird": "^3.5.3",
-    "cheerio": "^1.0.0-rc.2",
-    "image-downloader": "^3.4.2",
-    "request": "^2.88.0",
-    "request-promise": "^4.2.2"
-  }
+	"name": "slackmojis_downloader",
+	"version": "1.0.0",
+	"description": "Downloads all emojis from https://slackmojis.com",
+	"main": "app.js",
+	"author": "Ethan Fann",
+	"license": "MIT",
+	"dependencies": {
+		"axios": "^0.20.0",
+		"bluebird": "^3.5.3",
+		"image-downloader": "^3.4.2",
+		"react": "^16.13.1"
+	},
+	"devDependencies": {
+		"prettier": "2.1.2"
+	}
 }
