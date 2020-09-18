@@ -2,8 +2,8 @@ const React = require('react')
 const { Text, Static, Box } = require('ink')
 const download = require('image-downloader')
 const fs = require('fs')
-const Promise = require('bluebird')
 const axios = require('axios')
+const Promise = require('bluebird')
 const Spinner = require('ink-spinner').default
 
 const App = () => {
