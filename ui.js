@@ -38,21 +38,25 @@ const App = ({ limit = null }) => {
       let t0 = performance.now()
 
       if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
-      Promise.mapSeries(downloadList, (emoji) => {
-        if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest)
-        return download(emoji.url, path.join(emoji.dest, emoji.name)).then(
-          () => {
-            setDownloads((previousDownloads) => [
-              ...previousDownloads,
-              {
-                id: previousDownloads.length,
-                title: `Downloaded ${emoji.dest}/${emoji.name}`,
-              },
-            ])
-            setElapsedTime((performance.now() - t0) / 1000)
-          }
-        )
-      })
+      Promise.map(
+        downloadList,
+        (emoji) => {
+          if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest)
+          return download(emoji.url, path.join(emoji.dest, emoji.name)).then(
+            () => {
+              setDownloads((previousDownloads) => [
+                ...previousDownloads,
+                {
+                  id: previousDownloads.length,
+                  title: `Downloaded ${emoji.dest}/${emoji.name}`,
+                },
+              ])
+              setElapsedTime((performance.now() - t0) / 1000)
+            }
+          )
+        },
+        { concurrency: 10 }
+      )
     })
   }, [])
 
