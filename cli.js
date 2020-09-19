@@ -11,9 +11,11 @@ const cli = meow(`
 	Usage
 	  $ ./cli.js
   Options
-    --dump Dump the emoji listing to ./emoji.json
+    --limit Specify the number of emojis to download
+    --dump  Dump the emoji listing to ./emoji.json
   Examples
-    
+    $ ./cli.js --limit=5
+    $ ./cli.js --dump
 `)
 
 if (cli.flags.dump) {

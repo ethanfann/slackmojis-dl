@@ -6,7 +6,7 @@ const axios = require('axios')
 const Promise = require('bluebird')
 const Spinner = require('ink-spinner').default
 
-const App = () => {
+const App = ({ limit = null }) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
   const [downloads, setDownloads] = React.useState([])
 
@@ -14,10 +14,14 @@ const App = () => {
     axios.get('https://slackmojis.com/emojis.json').then((response) => {
       setTotalEmojis(response.data.length)
 
-      const downloadList = response.data.map((emoji) => ({
+      let downloadList = response.data.map((emoji) => ({
         url: emoji['image_url'],
         dest: `emojis/${emoji['category'].name}`,
       }))
+
+      if (limit) {
+        downloadList = downloadList.slice(0, limit)
+      }
 
       if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
       return Promise.mapSeries(downloadList, (emoji) => {
