@@ -19,7 +19,6 @@
   "dependencies": {
     "axios": "^0.20.0",
     "bluebird": "^3.5.3",
-    "image-downloader": "^3.4.2",
     "import-jsx": "^4.0.0",
     "ink": "^3.0.5",
     "ink-spinner": "^4.0.1",

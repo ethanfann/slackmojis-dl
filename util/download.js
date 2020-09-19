@@ -1,12 +1,12 @@
 const axios = require('axios')
 const fs = require('fs')
 
-async function dumpEmojiJson() {
-  const writer = fs.createWriteStream('emojis.json')
+async function download(url, path) {
+  const writer = fs.createWriteStream(path)
 
   return axios({
     method: 'get',
-    url: 'https://slackmojis.com/emojis.json',
+    url: url,
     responseType: 'stream',
   }).then((response) => {
     return new Promise((resolve, reject) => {
@@ -26,4 +26,4 @@ async function dumpEmojiJson() {
   })
 }
 
-module.exports = dumpEmojiJson
+module.exports = download
