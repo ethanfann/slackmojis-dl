@@ -46,7 +46,7 @@ const App = ({ limit = null }) => {
               ...previousDownloads,
               {
                 id: previousDownloads.length,
-                title: `Downloaded ${emoji.name}`,
+                title: `Downloaded ${emoji.dest}/${emoji.name}`,
               },
             ])
             setElapsedTime((performance.now() - t0) / 1000)
