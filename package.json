@@ -31,6 +31,7 @@
     "@babel/preset-env": "^7.11.5",
     "@babel/preset-react": "^7.10.4",
     "@babel/register": "^7.11.5",
+    "@ethancord/prettier-config": "^1.0.0",
     "eslint-config-xo-react": "^0.23.0",
     "eslint-plugin-react": "^7.20.6",
     "eslint-plugin-react-hooks": "^4.1.2",
@@ -50,5 +51,6 @@
     "plugins": [
       "@babel/plugin-proposal-class-properties"
     ]
-  }
+  },
+  "prettier": "@ethancord/prettier-config"
 }
