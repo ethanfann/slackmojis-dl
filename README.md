@@ -12,6 +12,10 @@ npm install && npm start
 
 ![](media/demo.gif)
 
+### Note
+
+Emojis already found within the `emojis/` directory won't be downloaded again on subsequent runs. For a fresh download, delete the `emojis/` directory.
+
 ## Organization
 
 ```
