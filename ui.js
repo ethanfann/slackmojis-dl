@@ -23,6 +23,8 @@ const App = ({ limit = null }) => {
   }
 
   const loadExistingEmojis = () => {
+    if (!fs.existsSync('emojis')) return
+
     const folders = fs.readdirSync('emojis')
 
     let existingEmojis = []
@@ -48,9 +50,11 @@ const App = ({ limit = null }) => {
 
       const existingEmojis = loadExistingEmojis()
 
-      downloadList = downloadList.filter(
-        (emoji) => !existingEmojis.includes(emoji.name)
-      )
+      if (existingEmojis) {
+        downloadList = downloadList.filter(
+          (emoji) => !existingEmojis.includes(emoji.name)
+        )
+      }
 
       setTotalEmojis(downloadList.length)
       setFetched(true)
