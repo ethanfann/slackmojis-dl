@@ -13,6 +13,7 @@ const App = ({ limit = null }) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
   const [downloads, setDownloads] = React.useState([])
   const [elapsedTime, setElapsedTime] = React.useState(0)
+  const [fetched, setFetched] = React.useState(false)
 
   const extractEmojiName = (emoji_url) => {
     const pathname = url.parse(emoji_url).pathname
@@ -21,10 +22,20 @@ const App = ({ limit = null }) => {
     return decodeURIComponent(basename)
   }
 
+  const loadExistingEmojis = () => {
+    const folders = fs.readdirSync('emojis')
+
+    let existingEmojis = []
+    for (const folder of folders) {
+      const found = fs.readdirSync(`emojis/${folder}`)
+      existingEmojis.push(...found)
+    }
+
+    return existingEmojis
+  }
+
   React.useEffect(() => {
     axios.get('https://slackmojis.com/emojis.json').then((response) => {
-      setTotalEmojis(response.data.length)
-
       let downloadList = response.data.map((emoji) => ({
         url: emoji['image_url'],
         dest: `${__dirname}/emojis/${emoji['category'].name}`,
@@ -34,6 +45,15 @@ const App = ({ limit = null }) => {
       if (limit) {
         downloadList = downloadList.slice(0, limit)
       }
+
+      const existingEmojis = loadExistingEmojis()
+
+      downloadList = downloadList.filter(
+        (emoji) => !existingEmojis.includes(emoji.name)
+      )
+
+      setTotalEmojis(downloadList.length)
+      setFetched(true)
 
       let t0 = performance.now()
 
@@ -60,7 +80,7 @@ const App = ({ limit = null }) => {
     })
   }, [])
 
-  if (totalEmojis === 0) {
+  if (totalEmojis === 0 && !fetched) {
     return (
       <>
         <Text>
@@ -69,6 +89,14 @@ const App = ({ limit = null }) => {
           </Text>
           {' Requesting Emoji Listing'}
         </Text>
+      </>
+    )
+  }
+
+  if (totalEmojis === 0 && fetched) {
+    return (
+      <>
+        <Text color="green">✔ Up to Date</Text>
       </>
     )
   }
