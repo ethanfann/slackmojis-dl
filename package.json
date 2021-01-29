@@ -17,7 +17,7 @@
     "ui.js"
   ],
   "dependencies": {
-    "axios": "^0.20.0",
+    "axios": "^0.21.1",
     "bluebird": "^3.5.3",
     "import-jsx": "^4.0.0",
     "ink": "^3.0.5",
