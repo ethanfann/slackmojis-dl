@@ -1,5 +1,5 @@
 const React = require('react')
-const { Text, Static, Box } = require('ink')
+const {Text, Static, Box} = require('ink')
 const url = require('url')
 const path = require('path')
 const fs = require('fs')
@@ -7,9 +7,9 @@ const axios = require('axios')
 const Promise = require('bluebird')
 const Spinner = require('ink-spinner').default
 const download = require('./util/download')
-const { performance } = require('perf_hooks')
+const {performance} = require('perf_hooks')
 
-const App = ({ limit = null }) => {
+const App = ({limit = null, category: categoryName = null}) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
   const [downloads, setDownloads] = React.useState([])
   const [elapsedTime, setElapsedTime] = React.useState(0)
@@ -38,11 +38,19 @@ const App = ({ limit = null }) => {
 
   React.useEffect(() => {
     axios.get('https://slackmojis.com/emojis.json').then((response) => {
-      let downloadList = response.data.map((emoji) => ({
-        url: emoji['image_url'],
-        dest: `${__dirname}/emojis/${emoji['category'].name}`,
-        name: extractEmojiName(emoji['image_url']),
-      }))
+      let downloadList = response.data
+        .filter((emoji) => {
+          if (categoryName != null) {
+            return emoji["category"]["name"] === categoryName 
+          } else { 
+            return true
+          }
+        })
+        .map((emoji) => ({
+          url: emoji['image_url'],
+          dest: `${__dirname}/emojis/${emoji['category'].name}`,
+          name: extractEmojiName(emoji['image_url']),
+        }))
 
       if (limit) {
         downloadList = downloadList.slice(0, limit)
