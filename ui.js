@@ -108,7 +108,7 @@ const App = ({ limit = null, category: categoryName = null }) => {
           {' Requesting Emoji Listing'}
         </Text>
       </>
-    )-
+    )
   }
 
   if (totalEmojis === 0 && fetched) {
