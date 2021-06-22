@@ -9,7 +9,7 @@ const download = require('./util/download')
 const { performance } = require('perf_hooks')
 const getEntireList = require('./util/obtain')
 
-const App = ({ limit = null }) => {
+const App = ({ limit = null, category: categoryName = null }) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
   const [downloads, setDownloads] = React.useState([])
   const [elapsedTime, setElapsedTime] = React.useState(0)
@@ -49,11 +49,19 @@ const App = ({ limit = null }) => {
 
   React.useEffect(() => {
     obtain().then((results) => {
-      let downloadList = results.map((emoji) => ({
-        url: emoji['image_url'],
-        dest: `${__dirname}/emojis/${emoji['category'].name}`,
-        name: extractEmojiName(emoji['image_url']),
-      }))
+      let downloadList = results
+        .filter((emoji) => {
+          if (categoryName != null) {
+            return emoji['category']['name'] === categoryName
+          } else {
+            return true
+          }
+        })
+        .map((emoji) => ({
+          url: emoji['image_url'],
+          dest: `${__dirname}/emojis/${emoji['category'].name}`,
+          name: extractEmojiName(emoji['image_url']),
+        }))
       if (limit) {
         downloadList = downloadList.slice(0, limit)
       }
@@ -100,7 +108,7 @@ const App = ({ limit = null }) => {
           {' Requesting Emoji Listing'}
         </Text>
       </>
-    )
+    )-
   }
 
   if (totalEmojis === 0 && fetched) {
