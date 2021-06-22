@@ -1,15 +1,15 @@
 const React = require('react')
-const {Text, Static, Box} = require('ink')
+const { Text, Static, Box } = require('ink')
 const url = require('url')
 const path = require('path')
 const fs = require('fs')
-const axios = require('axios')
 const Promise = require('bluebird')
 const Spinner = require('ink-spinner').default
 const download = require('./util/download')
-const {performance} = require('perf_hooks')
+const { performance } = require('perf_hooks')
+const getEntireList = require('./util/obtain')
 
-const App = ({limit = null, category: categoryName = null}) => {
+const App = ({ limit = null, category: categoryName = null }) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
   const [downloads, setDownloads] = React.useState([])
   const [elapsedTime, setElapsedTime] = React.useState(0)
@@ -36,13 +36,24 @@ const App = ({limit = null, category: categoryName = null}) => {
     return existingEmojis
   }
 
+  const obtain = () => {
+    return new Promise((resolve, reject) => {
+      try {
+        const results = getEntireList()
+        resolve(results)
+      } catch {
+        reject(new Error('Unable to obtain Emoji Listing.'))
+      }
+    })
+  }
+
   React.useEffect(() => {
-    axios.get('https://slackmojis.com/emojis.json').then((response) => {
-      let downloadList = response.data
+    obtain().then((results) => {
+      let downloadList = results
         .filter((emoji) => {
           if (categoryName != null) {
-            return emoji["category"]["name"] === categoryName 
-          } else { 
+            return emoji['category']['name'] === categoryName
+          } else {
             return true
           }
         })
@@ -51,11 +62,9 @@ const App = ({limit = null, category: categoryName = null}) => {
           dest: `${__dirname}/emojis/${emoji['category'].name}`,
           name: extractEmojiName(emoji['image_url']),
         }))
-
       if (limit) {
         downloadList = downloadList.slice(0, limit)
       }
-
       const existingEmojis = loadExistingEmojis()
 
       if (existingEmojis) {
@@ -63,12 +72,9 @@ const App = ({limit = null, category: categoryName = null}) => {
           (emoji) => !existingEmojis.includes(emoji.name)
         )
       }
-
       setTotalEmojis(downloadList.length)
       setFetched(true)
-
       let t0 = performance.now()
-
       if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
       Promise.map(
         downloadList,
@@ -102,7 +108,7 @@ const App = ({limit = null, category: categoryName = null}) => {
           {' Requesting Emoji Listing'}
         </Text>
       </>
-    )
+    )-
   }
 
   if (totalEmojis === 0 && fetched) {

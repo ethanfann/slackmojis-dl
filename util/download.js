@@ -1,29 +1,27 @@
-const axios = require('axios')
 const fs = require('fs')
+const SharedAxios = require('./sharedAxios')
 
 async function download(url, path) {
   const writer = fs.createWriteStream(path)
-
-  return axios({
-    method: 'get',
-    url: url,
-    responseType: 'stream',
-  }).then((response) => {
-    return new Promise((resolve, reject) => {
-      response.data.pipe(writer)
-      let error = null
-      writer.on('error', (err) => {
-        error = err
-        writer.close()
-        reject(err)
-      })
-      writer.on('close', () => {
-        if (!error) {
-          resolve(true)
-        }
+  const sharedAxios = await SharedAxios()
+  return sharedAxios
+    .get(`${url.replace('https://emojis.slackmojis.com', '')}`)
+    .then((response) => {
+      return new Promise((resolve, reject) => {
+        response.data.pipe(writer)
+        let error = null
+        writer.on('error', (err) => {
+          error = err
+          writer.close()
+          reject(err)
+        })
+        writer.on('close', () => {
+          if (!error) {
+            resolve(true)
+          }
+        })
       })
     })
-  })
 }
 
 module.exports = download
