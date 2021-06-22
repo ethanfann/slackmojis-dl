@@ -18,22 +18,22 @@
   ],
   "dependencies": {
     "axios": "^0.21.1",
-    "bluebird": "^3.5.3",
+    "bluebird": "^3.7.2",
     "import-jsx": "^4.0.0",
-    "ink": "^3.0.5",
-    "ink-spinner": "^4.0.1",
+    "ink": "^3.0.8",
+    "ink-spinner": "^4.0.2",
     "meow": "^7.1.1",
-    "react": "^16.13.1"
+    "react": "^16.14.0"
   },
   "devDependencies": {
     "@ava/babel": "^1.0.1",
-    "@babel/preset-env": "^7.11.5",
-    "@babel/preset-react": "^7.10.4",
-    "@babel/register": "^7.11.5",
+    "@babel/preset-env": "^7.14.7",
+    "@babel/preset-react": "^7.14.5",
+    "@babel/register": "^7.14.5",
     "@ethancord/prettier-config": "^1.0.0",
     "eslint-config-xo-react": "^0.23.0",
-    "eslint-plugin-react": "^7.20.6",
-    "eslint-plugin-react-hooks": "^4.1.2",
+    "eslint-plugin-react": "^7.24.0",
+    "eslint-plugin-react-hooks": "^4.2.0",
     "prettier": "2.1.2"
   },
   "ava": {
