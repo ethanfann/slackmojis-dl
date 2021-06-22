@@ -28,4 +28,15 @@ const getEntireList = async function () {
   return all
 }
 
-module.exports = getEntireList
+const obtain = () => {
+  return new Promise((resolve, reject) => {
+    try {
+      const results = getEntireList()
+      resolve(results)
+    } catch {
+      reject(new Error('Unable to obtain Emoji Listing.'))
+    }
+  })
+}
+
+module.exports = obtain
