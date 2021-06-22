@@ -7,7 +7,7 @@ const Promise = require('bluebird')
 const Spinner = require('ink-spinner').default
 const download = require('./util/download')
 const { performance } = require('perf_hooks')
-const getEntireList = require('./util/obtain')
+const obtain = require('./util/obtain')
 
 const App = ({ limit = null, category: categoryName = null }) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
@@ -34,17 +34,6 @@ const App = ({ limit = null, category: categoryName = null }) => {
     }
 
     return existingEmojis
-  }
-
-  const obtain = () => {
-    return new Promise((resolve, reject) => {
-      try {
-        const results = getEntireList()
-        resolve(results)
-      } catch {
-        reject(new Error('Unable to obtain Emoji Listing.'))
-      }
-    })
   }
 
   React.useEffect(() => {
