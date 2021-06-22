@@ -4,6 +4,8 @@ const importJsx = require('import-jsx')
 const { render } = require('ink')
 const meow = require('meow')
 const download = require('./util/download')
+const obtain = require('./util/obtain')
+const fs = require('fs')
 
 const ui = importJsx('./ui')
 
@@ -21,7 +23,10 @@ const cli = meow(`
 `)
 
 if (cli.flags.dump) {
-  download('https://slackmojis.com/emojis.json', 'emojis.json')
+  obtain().then((results) => {
+    let data = JSON.stringify(results)
+    fs.writeFileSync('emojis.json', data)
+  })
 } else {
   render(React.createElement(ui, cli.flags))
 }
