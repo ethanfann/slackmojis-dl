@@ -3,11 +3,11 @@ const { Text, Static, Box } = require('ink')
 const url = require('url')
 const path = require('path')
 const fs = require('fs')
-const axios = require('axios')
 const Promise = require('bluebird')
 const Spinner = require('ink-spinner').default
 const download = require('./util/download')
 const { performance } = require('perf_hooks')
+const getEntireList = require('./util/obtain')
 
 const App = ({ limit = null }) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
@@ -36,18 +36,27 @@ const App = ({ limit = null }) => {
     return existingEmojis
   }
 
+  const obtain = () => {
+    return new Promise((resolve, reject) => {
+      try {
+        const results = getEntireList()
+        resolve(results)
+      } catch {
+        reject(new Error('Unable to obtain Emoji Listing.'))
+      }
+    })
+  }
+
   React.useEffect(() => {
-    axios.get('https://slackmojis.com/emojis.json').then((response) => {
-      let downloadList = response.data.map((emoji) => ({
+    obtain().then((results) => {
+      let downloadList = results.map((emoji) => ({
         url: emoji['image_url'],
         dest: `${__dirname}/emojis/${emoji['category'].name}`,
         name: extractEmojiName(emoji['image_url']),
       }))
-
       if (limit) {
         downloadList = downloadList.slice(0, limit)
       }
-
       const existingEmojis = loadExistingEmojis()
 
       if (existingEmojis) {
@@ -55,12 +64,9 @@ const App = ({ limit = null }) => {
           (emoji) => !existingEmojis.includes(emoji.name)
         )
       }
-
       setTotalEmojis(downloadList.length)
       setFetched(true)
-
       let t0 = performance.now()
-
       if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
       Promise.map(
         downloadList,
