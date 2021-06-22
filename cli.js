@@ -17,7 +17,7 @@ const cli = meow(`
   Examples
     $ ./cli.js --limit=5
     $ ./cli.js --dump
-    $ ./cli.js --category "Hangout Blobs"
+    $ ./cli.js --category "Hangouts Blob"
 `)
 
 if (cli.flags.dump) {
