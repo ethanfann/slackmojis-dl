@@ -36,7 +36,16 @@ const App = ({ limit = null, category: categoryName = null }) => {
     return existingEmojis
   }
 
+  const formEmojiName = (emojiName, count) => {
+    const parsedPath = path.parse(emojiName)
+
+    return count === 0
+      ? emojiName
+      : `${parsedPath.name}-${count}${[parsedPath.ext]}`
+  }
+
   React.useEffect(() => {
+    if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
     obtain().then((results) => {
       let downloadList = results
         .filter((emoji) => {
@@ -51,9 +60,11 @@ const App = ({ limit = null, category: categoryName = null }) => {
           dest: `${__dirname}/emojis/${emoji['category'].name}`,
           name: extractEmojiName(emoji['image_url']),
         }))
+
       if (limit) {
         downloadList = downloadList.slice(0, limit)
       }
+
       const existingEmojis = loadExistingEmojis()
 
       if (existingEmojis) {
@@ -61,26 +72,38 @@ const App = ({ limit = null, category: categoryName = null }) => {
           (emoji) => !existingEmojis.includes(emoji.name)
         )
       }
+
       setTotalEmojis(downloadList.length)
       setFetched(true)
+
       let t0 = performance.now()
-      if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
       Promise.map(
         downloadList,
         (emoji) => {
           if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest)
-          return download(emoji.url, path.join(emoji.dest, emoji.name)).then(
-            () => {
-              setDownloads((previousDownloads) => [
-                ...previousDownloads,
-                {
-                  id: previousDownloads.length,
-                  title: `Downloaded ${emoji.dest}/${emoji.name}`,
-                },
-              ])
-              setElapsedTime((performance.now() - t0) / 1000)
-            }
-          )
+
+          let dupeCount = 0
+          while (
+            fs.existsSync(
+              path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
+            )
+          ) {
+            dupeCount += 1
+          }
+
+          return download(
+            emoji.url,
+            path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
+          ).then(() => {
+            setDownloads((previousDownloads) => [
+              ...previousDownloads,
+              {
+                id: previousDownloads.length,
+                title: `Downloaded ${emoji.dest}/${emoji.name}`,
+              },
+            ])
+            setElapsedTime((performance.now() - t0) / 1000)
+          })
         },
         { concurrency: 10 }
       )
