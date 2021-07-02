@@ -1,5 +1,4 @@
 const axios = require('axios')
-const fs = require('fs')
 
 const getPage = async function (page) {
   let results = await axios({
