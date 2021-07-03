@@ -1,6 +1,5 @@
 const React = require('react')
 const { Text, Static, Box } = require('ink')
-const url = require('url')
 const path = require('path')
 const fs = require('fs')
 const Promise = require('bluebird')
@@ -8,19 +7,13 @@ const Spinner = require('ink-spinner').default
 const download = require('./util/download')
 const { performance } = require('perf_hooks')
 const obtain = require('./util/obtain')
+const extractEmojiName = require('./util/extractEmojiName')
 
 const App = ({ limit = null, category: categoryName = null }) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
   const [downloads, setDownloads] = React.useState([])
   const [elapsedTime, setElapsedTime] = React.useState(0)
   const [fetched, setFetched] = React.useState(false)
-
-  const extractEmojiName = (emoji_url) => {
-    const pathname = url.parse(emoji_url).pathname
-    const basename = path.basename(pathname)
-
-    return decodeURIComponent(basename)
-  }
 
   const loadExistingEmojis = () => {
     if (!fs.existsSync('emojis')) return
