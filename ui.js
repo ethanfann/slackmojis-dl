@@ -46,7 +46,7 @@ const App = ({ limit = null, category: categoryName = null }) => {
 
   React.useEffect(() => {
     if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
-    obtain().then((results) => {
+    obtain(limit).then((results) => {
       let downloadList = results
         .filter((emoji) => {
           if (categoryName != null) {
@@ -60,10 +60,6 @@ const App = ({ limit = null, category: categoryName = null }) => {
           dest: `${__dirname}/emojis/${emoji['category'].name}`,
           name: extractEmojiName(emoji['image_url']),
         }))
-
-      if (limit) {
-        downloadList = downloadList.slice(0, limit)
-      }
 
       const existingEmojis = loadExistingEmojis()
 
