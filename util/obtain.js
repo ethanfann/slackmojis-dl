@@ -11,13 +11,17 @@ const getPage = async function (page) {
   return results
 }
 
-const getEntireList = async function () {
+const getEntireList = async function (limit) {
   let all = []
   let page = 0
 
   console.log('Getting data for page: ' + page)
   let results = await getPage(page)
   while (results.length > 0) {
+    if (limit && page === limit) {
+      return all
+    }
+
     page = page + 1
     console.log('Getting data for page: ' + page)
     results = await getPage(page)
@@ -27,10 +31,10 @@ const getEntireList = async function () {
   return all
 }
 
-const obtain = () => {
+const obtain = (limit) => {
   return new Promise((resolve, reject) => {
     try {
-      const results = getEntireList()
+      const results = getEntireList(limit)
       resolve(results)
     } catch {
       reject(new Error('Unable to obtain Emoji Listing.'))
