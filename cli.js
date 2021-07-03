@@ -13,7 +13,7 @@ const cli = meow(`
 	Usage
 	  $ ./cli.js
   Options
-    --limit Specify the number of emojis to download
+    --limit Specify the number of pages to download
     --dump  Dump the emoji listing to ./emojis.json
     --category The category name
   Examples
