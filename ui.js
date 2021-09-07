@@ -8,12 +8,14 @@ const download = require('./util/download')
 const { performance } = require('perf_hooks')
 const obtain = require('./util/obtain')
 const extractEmojiName = require('./util/extractEmojiName')
+const getLastPage = require('./util/getLastPage')
 
 const App = ({ limit = null, category: categoryName = null }) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
   const [downloads, setDownloads] = React.useState([])
   const [elapsedTime, setElapsedTime] = React.useState(0)
   const [fetched, setFetched] = React.useState(false)
+  const [lastPage, setLastPage] = React.useState(0)
 
   const loadExistingEmojis = () => {
     if (!fs.existsSync('emojis')) return
@@ -39,65 +41,82 @@ const App = ({ limit = null, category: categoryName = null }) => {
 
   React.useEffect(() => {
     if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
-    obtain(limit).then((results) => {
-      let downloadList = results
-        .filter((emoji) => {
-          if (categoryName != null) {
-            return emoji['category']['name'] === categoryName
-          } else {
-            return true
-          }
-        })
-        .map((emoji) => ({
-          url: emoji['image_url'],
-          dest: `${__dirname}/emojis/${emoji['category'].name}`,
-          name: extractEmojiName(emoji['image_url']),
-        }))
 
-      const existingEmojis = loadExistingEmojis()
-
-      if (existingEmojis) {
-        downloadList = downloadList.filter(
-          (emoji) => !existingEmojis.includes(emoji.name)
-        )
-      }
-
-      setTotalEmojis(downloadList.length)
-      setFetched(true)
-
-      let t0 = performance.now()
-      Promise.map(
-        downloadList,
-        (emoji) => {
-          if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest)
-
-          let dupeCount = 0
-          while (
-            fs.existsSync(
-              path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
-            )
-          ) {
-            dupeCount += 1
-          }
-
-          return download(
-            emoji.url,
-            path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
-          ).then(() => {
-            setDownloads((previousDownloads) => [
-              ...previousDownloads,
-              {
-                id: previousDownloads.length,
-                title: `Downloaded ${emoji.dest}/${emoji.name}`,
-              },
-            ])
-            setElapsedTime((performance.now() - t0) / 1000)
+    getLastPage().then((lastPage) => {
+      setLastPage(lastPage)
+      obtain(limit, lastPage).then((results) => {
+        let downloadList = results
+          .filter((emoji) => {
+            if (categoryName != null) {
+              return emoji['category']['name'] === categoryName
+            } else {
+              return true
+            }
           })
-        },
-        { concurrency: 10 }
-      )
+          .map((emoji) => ({
+            url: emoji['image_url'],
+            dest: `${__dirname}/emojis/${emoji['category'].name}`,
+            name: extractEmojiName(emoji['image_url']),
+          }))
+
+        const existingEmojis = loadExistingEmojis()
+
+        if (existingEmojis) {
+          downloadList = downloadList.filter(
+            (emoji) => !existingEmojis.includes(emoji.name)
+          )
+        }
+
+        setTotalEmojis(downloadList.length)
+        setFetched(true)
+
+        let t0 = performance.now()
+        Promise.map(
+          downloadList,
+          (emoji) => {
+            if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest)
+
+            let dupeCount = 0
+            while (
+              fs.existsSync(
+                path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
+              )
+            ) {
+              dupeCount += 1
+            }
+
+            return download(
+              emoji.url,
+              path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
+            ).then(() => {
+              setDownloads((previousDownloads) => [
+                ...previousDownloads,
+                {
+                  id: previousDownloads.length,
+                  title: `Downloaded ${emoji.dest}/${emoji.name}`,
+                },
+              ])
+              setElapsedTime((performance.now() - t0) / 1000)
+            })
+          },
+          { concurrency: 20 }
+        )
+      })
     })
   }, [])
+
+  if (lastPage == 0) {
+    return (
+      <>
+        <Text>
+          <Text color="green">
+            <Spinner type="dots" />
+          </Text>
+          {' Determining Last Page Of Emojis'}
+        </Text>
+      </>
+    )
+  }
 
   if (totalEmojis === 0 && !fetched) {
     return (
@@ -106,7 +125,7 @@ const App = ({ limit = null, category: categoryName = null }) => {
           <Text color="green">
             <Spinner type="dots" />
           </Text>
-          {' Requesting Emoji Listing'}
+          {` Requesting Emoji Listing For ${limit ? limit : lastPage} Pages`}
         </Text>
       </>
     )

@@ -1,41 +1,24 @@
-const axios = require('axios')
+const getPage = require('./getPage')
+const Promise = require('bluebird')
 
-const getPage = async function (page) {
-  let results = await axios({
-    method: 'get',
-    url: `https://slackmojis.com/emojis.json?page=${String(page)}`,
-  }).then((response) => {
-    return response.data
-  })
-
-  return results
-}
-
-const getEntireList = async function (limit) {
+const getEntireList = async function (limit, lastPage) {
   let all = []
-  let page = 0
 
-  console.log('Getting data for page: ' + page)
-  let results = await getPage(page)
-  while (results.length > 0) {
-    if (limit && page === limit) {
-      return all
-    }
-
-    page = page + 1
-    console.log('Getting data for page: ' + page)
-    results = await getPage(page)
-    all = all.concat(results)
-  }
+  await Promise.map(Array(limit ? limit : lastPage).keys(), (page) => {
+    return getPage(page).then((results) => {
+      all.push(...results)
+    })
+  })
 
   return all
 }
 
-const obtain = (limit) => {
+const obtain = (limit, lastPage) => {
   return new Promise((resolve, reject) => {
     try {
-      const results = getEntireList(limit)
-      resolve(results)
+      getEntireList(limit, lastPage).then((results) => {
+        resolve(results)
+      })
     } catch {
       reject(new Error('Unable to obtain Emoji Listing.'))
     }

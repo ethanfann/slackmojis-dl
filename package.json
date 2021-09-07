@@ -24,33 +24,20 @@
     "ink": "^3.0.8",
     "ink-spinner": "^4.0.2",
     "meow": "^7.1.1",
-    "react": "^16.14.0"
+    "react": "^16.14.0",
+    "regenerator-runtime": "^0.13.9"
   },
   "devDependencies": {
     "@ava/babel": "^1.0.1",
-    "@babel/preset-env": "^7.14.7",
-    "@babel/preset-react": "^7.14.5",
     "@babel/register": "^7.14.5",
     "@ethancord/prettier-config": "^1.0.0",
     "ava": "^3.15.0",
-    "eslint-config-xo-react": "^0.23.0",
-    "eslint-plugin-react": "^7.24.0",
-    "eslint-plugin-react-hooks": "^4.2.0",
     "prettier": "2.1.2"
   },
   "ava": {
     "babel": true,
     "require": [
       "@babel/register"
-    ]
-  },
-  "babel": {
-    "presets": [
-      "@babel/preset-env",
-      "@babel/preset-react"
-    ],
-    "plugins": [
-      "@babel/plugin-proposal-class-properties"
     ]
   },
   "prettier": "@ethancord/prettier-config"
