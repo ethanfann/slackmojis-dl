@@ -4,11 +4,15 @@ const Promise = require('bluebird')
 const getEntireList = async function (limit, lastPage) {
   let all = []
 
-  await Promise.map(Array(limit ? limit : lastPage).keys(), (page) => {
-    return getPage(page).then((results) => {
-      all.push(...results)
-    })
-  })
+  await Promise.map(
+    Array(limit ? limit : lastPage).keys(),
+    (page) => {
+      return getPage(page).then((results) => {
+        all.push(...results)
+      })
+    },
+    { concurrency: 10 }
+  )
 
   return all
 }
