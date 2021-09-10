@@ -7,7 +7,7 @@ Downloads all emojis from https://slackmojis.com/
 ## Prerequisites
 
 ```
-- Node v14 or later
+- Node v12 or later
 - NPM
 ```
 
