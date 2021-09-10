@@ -9,7 +9,7 @@ const obtain = require('./util/obtain')
 const prepare = require('./util/prepare')
 const loadExistingEmojis = require('./util/loadExistingEmojis')
 
-const testDir = `${__dirname}/test/emojis`
+const testDir = `${__dirname}/temp/emojis`
 fs.rmdirSync(testDir, { recursive: true })
 fs.mkdirSync(testDir, { recursive: true })
 
