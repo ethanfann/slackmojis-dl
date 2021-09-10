@@ -7,8 +7,8 @@ const Spinner = require('ink-spinner').default
 const download = require('./util/download')
 const { performance } = require('perf_hooks')
 const obtain = require('./util/obtain')
-const extractEmojiName = require('./util/extractEmojiName')
 const getLastPage = require('./util/getLastPage')
+const loadExistingEmojis = require('./util/loadExistingEmojis')
 
 const App = ({
   dest = 'emojis',
@@ -20,20 +20,6 @@ const App = ({
   const [elapsedTime, setElapsedTime] = React.useState(0)
   const [fetched, setFetched] = React.useState(false)
   const [lastPage, setLastPage] = React.useState(0)
-
-  const loadExistingEmojis = (outputDir) => {
-    if (!fs.existsSync(outputDir)) return
-
-    const folders = fs.readdirSync(outputDir)
-
-    let existingEmojis = []
-    for (const folder of folders) {
-      const found = fs.readdirSync(`${outputDir}/${folder}`)
-      existingEmojis.push(...found)
-    }
-
-    return existingEmojis
-  }
 
   const formEmojiName = (emojiName, count) => {
     const parsedPath = path.parse(emojiName)
@@ -51,19 +37,7 @@ const App = ({
     getLastPage().then((lastPage) => {
       setLastPage(lastPage)
       obtain(limit, lastPage).then((results) => {
-        let downloadList = results
-          .filter((emoji) => {
-            if (categoryName != null) {
-              return emoji['category']['name'] === categoryName
-            } else {
-              return true
-            }
-          })
-          .map((emoji) => ({
-            url: emoji['image_url'],
-            dest: `${outputDir}/${emoji['category'].name}`,
-            name: extractEmojiName(emoji['image_url']),
-          }))
+        let downloadList = prepare(results, categoryName, outputDir)
 
         const existingEmojis = loadExistingEmojis(outputDir)
 
