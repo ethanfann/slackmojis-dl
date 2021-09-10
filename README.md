@@ -1,6 +1,6 @@
 # slackmojis-dl
 
-Downloads all emojis from https://slackmojis.com/
+Downloads emojis from https://slackmojis.com/
 
 ![example workflow](https://github.com/ethanfann/slackmojis-dl/actions/workflows/node.js.yml/badge.svg)
 
