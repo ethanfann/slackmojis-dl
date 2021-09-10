@@ -2,15 +2,35 @@
 
 Downloads all emojis from https://slackmojis.com/
 
-## Usage
-
-```
-git clone https://github.com/ethanfann/slackmojis-dl
-cd slackmojis-dl
-npm install && npm start
-```
-
 ![](media/demo.jpg)
+
+## Prerequisites
+```
+- Node v10 or greater
+- NPM
+```
+
+## Usage
+```
+npx slackmojis-dl
+```
+
+### Options
+```
+  --dest      Output directory. Defaults to the working directory
+  --category  Specify a category to download
+  --limit     Restrict the number of pages to download
+  --dump      Save the emoji listing to ./emojis.json
+              Override save location with --path
+```
+
+### Examples
+```
+  $ npx slackmojis-dl --dest desired/path
+  $ npx slackmojis-dl --limit=5
+  $ npx slackmojis-dl --dest desired/path --dump
+  $ npx slackmojis-dl --category "Hangouts Blob"
+```
 
 ### Note
 
