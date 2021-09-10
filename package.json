@@ -1,17 +1,15 @@
 {
   "name": "slackmojis-dl",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Downloads all emojis from https://slackmojis.com",
   "main": "cli.js",
   "author": "Ethan Fann",
   "license": "MIT",
-  "engines": {
-    "node": ">=10"
-  },
   "scripts": {
     "start": "node cli.js",
     "test": "ava"
   },
+  "bin": "cli.js",
   "dependencies": {
     "axios": "^0.21.1",
     "bluebird": "^3.7.2",
@@ -35,5 +33,8 @@
       "@babel/register"
     ]
   },
-  "prettier": "@ethancord/prettier-config"
+  "prettier": "@ethancord/prettier-config",
+  "engines": {
+    "node": ">=10"
+  }
 }
