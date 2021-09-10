@@ -45,7 +45,7 @@ const App = ({
 
   React.useEffect(() => {
     const outputDir =
-      dest === 'emojis' ? `${__dirname}/emojis` : `${dest}/emojis`
+      dest === 'emojis' ? `${process.cwd()}/emojis` : `${dest}/emojis`
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true })
 
     getLastPage().then((lastPage) => {
