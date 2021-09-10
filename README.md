@@ -5,17 +5,20 @@ Downloads all emojis from https://slackmojis.com/
 ![](media/demo.jpg)
 
 ## Prerequisites
+
 ```
-- Node v10 or greater
+- Node v14 or later
 - NPM
 ```
 
 ## Usage
+
 ```
 npx slackmojis-dl
 ```
 
 ### Options
+
 ```
   --dest      Output directory. Defaults to the working directory
   --category  Specify a category to download
@@ -25,6 +28,7 @@ npx slackmojis-dl
 ```
 
 ### Examples
+
 ```
   $ npx slackmojis-dl --dest desired/path
   $ npx slackmojis-dl --limit=5
