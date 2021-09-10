@@ -1,12 +1,12 @@
-# slackmojis-downloader
+# slackmojis-dl
 
 Downloads all emojis from https://slackmojis.com/
 
 ## Usage
 
 ```
-git clone https://github.com/ethanfann/slackmojis-downloader
-cd slackmojis-downloader
+git clone https://github.com/ethanfann/slackmojis-dl
+cd slackmojis-dl
 npm install && npm start
 ```
 

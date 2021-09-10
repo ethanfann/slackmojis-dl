@@ -1,6 +1,6 @@
 {
-  "name": "slackmojis_downloader",
-  "version": "2.0.1",
+  "name": "slackmojis-dl",
+  "version": "2.0.2",
   "description": "Downloads all emojis from https://slackmojis.com",
   "main": "cli.js",
   "author": "Ethan Fann",
