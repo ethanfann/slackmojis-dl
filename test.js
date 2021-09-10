@@ -10,7 +10,7 @@ const prepare = require('./util/prepare')
 const loadExistingEmojis = require('./util/loadExistingEmojis')
 
 const testDir = `${__dirname}/temp/emojis`
-if (fs.existsSync(testDir)) fs.rmdirSync(testDir, { recursive: true })
+if (fs.existsSync(testDir)) fs.rmSync(testDir, { recursive: true })
 fs.mkdirSync(testDir, { recursive: true })
 
 test('downloads emojis', async (t) => {
