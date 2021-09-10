@@ -10,21 +10,25 @@ const obtain = require('./util/obtain')
 const extractEmojiName = require('./util/extractEmojiName')
 const getLastPage = require('./util/getLastPage')
 
-const App = ({ limit = null, category: categoryName = null }) => {
+const App = ({
+  dest = 'emojis',
+  limit = null,
+  category: categoryName = null,
+}) => {
   const [totalEmojis, setTotalEmojis] = React.useState(0)
   const [downloads, setDownloads] = React.useState([])
   const [elapsedTime, setElapsedTime] = React.useState(0)
   const [fetched, setFetched] = React.useState(false)
   const [lastPage, setLastPage] = React.useState(0)
 
-  const loadExistingEmojis = () => {
-    if (!fs.existsSync('emojis')) return
+  const loadExistingEmojis = (outputDir) => {
+    if (!fs.existsSync(outputDir)) return
 
-    const folders = fs.readdirSync('emojis')
+    const folders = fs.readdirSync(outputDir)
 
     let existingEmojis = []
     for (const folder of folders) {
-      const found = fs.readdirSync(`emojis/${folder}`)
+      const found = fs.readdirSync(`${outputDir}/${folder}`)
       existingEmojis.push(...found)
     }
 
@@ -40,7 +44,9 @@ const App = ({ limit = null, category: categoryName = null }) => {
   }
 
   React.useEffect(() => {
-    if (!fs.existsSync('emojis')) fs.mkdirSync('emojis')
+    const outputDir =
+      dest === 'emojis' ? `${__dirname}/emojis` : `${dest}/emojis`
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true })
 
     getLastPage().then((lastPage) => {
       setLastPage(lastPage)
@@ -55,11 +61,11 @@ const App = ({ limit = null, category: categoryName = null }) => {
           })
           .map((emoji) => ({
             url: emoji['image_url'],
-            dest: `${__dirname}/emojis/${emoji['category'].name}`,
+            dest: `${outputDir}/${emoji['category'].name}`,
             name: extractEmojiName(emoji['image_url']),
           }))
 
-        const existingEmojis = loadExistingEmojis()
+        const existingEmojis = loadExistingEmojis(outputDir)
 
         if (existingEmojis) {
           downloadList = downloadList.filter(

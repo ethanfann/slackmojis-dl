@@ -13,12 +13,15 @@ const cli = meow(`
 	Usage
 	  $ ./cli.js
   Options
-    --limit Specify the number of pages to download
-    --dump  Dump the emoji listing to ./emojis.json
-    --category The category name
+    --dest  Output directory that defaults to the working directory
+    --limit Restrict the number of pages to download
+    --dump  Save the emoji listing to ./emojis.json
+            Override save location with --path
+    --category The category name to download
   Examples
+    $ ./cli.js --dest desired/path
     $ ./cli.js --limit=5
-    $ ./cli.js --dump
+    $ ./cli.js --dest desired/path --dump
     $ ./cli.js --category "Hangouts Blob"
 `)
 
