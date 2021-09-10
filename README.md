@@ -10,7 +10,7 @@ cd slackmojis-downloader
 npm install && npm start
 ```
 
-![](media/demo.gif)
+![](media/demo.png)
 
 ### Note
 
