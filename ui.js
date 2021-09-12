@@ -9,6 +9,7 @@ const { performance } = require('perf_hooks')
 const obtain = require('./util/obtain')
 const getLastPage = require('./util/getLastPage')
 const loadExistingEmojis = require('./util/loadExistingEmojis')
+const prepare = require('./util/prepare')
 
 const App = ({
   dest = 'emojis',
