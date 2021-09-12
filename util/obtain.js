@@ -5,7 +5,7 @@ const getEntireList = async function (limit, lastPage) {
   let all = []
 
   await Promise.map(
-    Array(limit ? limit : lastPage).keys(),
+    Array(limit ? limit : lastPage + 1).keys(),
     (page) => {
       return getPage(page).then((results) => {
         all.push(...results)

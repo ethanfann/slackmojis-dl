@@ -1,5 +1,6 @@
 const axios = require('axios')
 const https = require('https')
+const pjson = require('../package.json')
 
 let instance
 const SharedAxios = async function () {
@@ -8,7 +9,10 @@ const SharedAxios = async function () {
       baseURL: 'https://emojis.slackmojis.com',
       responseType: 'stream',
       httpsAgent: new https.Agent({ keepAlive: true }),
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': `slackmojis-dl/${pjson.version}`,
+      },
     })
   }
 
