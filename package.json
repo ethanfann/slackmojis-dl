@@ -35,6 +35,6 @@
   },
   "prettier": "@ethancord/prettier-config",
   "engines": {
-    "node": ">=10"
+    "node": ">=12"
   }
 }
