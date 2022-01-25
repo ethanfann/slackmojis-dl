@@ -1,7 +1,7 @@
 const fs = require('fs')
 const SharedAxios = require('./sharedAxios')
 
-async function download(url, path) {
+const download = async (url, path) => {
   const writer = fs.createWriteStream(path)
   const sharedAxios = await SharedAxios()
   return sharedAxios
