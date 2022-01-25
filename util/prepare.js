@@ -13,6 +13,7 @@ const prepare = (emojis, category, outputDir) => {
       url: emoji['image_url'],
       dest: `${outputDir}/${emoji['category'].name}`,
       name: extractEmojiName(emoji['image_url']),
+      category: emoji['category'].name,
     }))
 }
 

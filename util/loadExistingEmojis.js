@@ -1,17 +1,11 @@
-const fs = require('fs')
+const glob = require('glob')
 
 const loadExistingEmojis = (outputDir) => {
-  if (!fs.existsSync(outputDir)) return
-
-  const folders = fs.readdirSync(outputDir)
-
-  let existingEmojis = []
-  for (const folder of folders) {
-    const found = fs.readdirSync(`${outputDir}/${folder}`)
-    existingEmojis.push(...found)
+  const options = {
+    cwd: outputDir,
   }
-
-  return existingEmojis
+  const files = glob.sync(`**/*.*`, options)
+  return files
 }
 
 module.exports = loadExistingEmojis

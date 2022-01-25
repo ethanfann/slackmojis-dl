@@ -44,7 +44,8 @@ const App = ({
 
         if (existingEmojis) {
           downloadList = downloadList.filter(
-            (emoji) => !existingEmojis.includes(emoji.name)
+            (emoji) =>
+              !existingEmojis.includes(path.join(emoji.category, emoji.name))
           )
         }
 

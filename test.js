@@ -9,24 +9,51 @@ const obtain = require('./util/obtain')
 const prepare = require('./util/prepare')
 const loadExistingEmojis = require('./util/loadExistingEmojis')
 
-const testDir = `${__dirname}/temp/emojis`
-if (fs.existsSync(testDir)) fs.rmSync(testDir, { recursive: true })
-fs.mkdirSync(testDir, { recursive: true })
+/* 
+  Temporary Paths
+    downloadDir = Used for tests w/ networking to slackmojis.com
+    generateDir = Used for tests w/ locally generated files
+*/
+const tempDir = `${__dirname}/temp`
+const downloadDir = path.join(tempDir, 'download')
+const generateDir = path.join(tempDir, 'generate')
+
+// Clean up the temp directories
+if (fs.existsSync(downloadDir)) fs.rmSync(downloadDir, { recursive: true })
+fs.mkdirSync(downloadDir, { recursive: true })
+
+if (fs.existsSync(generateDir)) fs.rmSync(generateDir, { recursive: true })
+fs.mkdirSync(generateDir, { recursive: true })
 
 test('downloads emojis', async (t) => {
   const results = await getPage(0)
-  const prepared = prepare(results, null, testDir)
+  const prepared = prepare(results, null, downloadDir)
 
   const emoji = prepared[0]
   if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest)
   await download(emoji.url, path.join(emoji.dest, emoji.name))
 
-  t.is(loadExistingEmojis(testDir).length === 1, true)
+  t.is(loadExistingEmojis(downloadDir).length === 1, true)
+})
+
+test('loads existing emojis', async (t) => {
+  const range = [...Array(10).keys()]
+  const extensions = ['.jpg', '.png', '.gif']
+
+  // Generate 10 media files
+  range.forEach((number) => {
+    const extension = extensions[Math.floor(Math.random() * 3)]
+    fs.openSync(path.join(generateDir, number + extension), 'w')
+  })
+
+  const existing = loadExistingEmojis(generateDir)
+
+  t.is(existing.length === 10, true)
 })
 
 test('filter emojis when a category is specified', async (t) => {
   const results = await getPage(0)
-  const prepared = prepare(results, 'Party Parrot', testDir)
+  const prepared = prepare(results, 'Party Parrot', downloadDir)
 
   let flag = false
   prepared.forEach((emoji) => (flag = emoji.dest.includes('Party Parrot')))
