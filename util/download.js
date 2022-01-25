@@ -2,8 +2,7 @@ const createWriteStream = require('fs').createWriteStream
 const SharedAxios = require('./sharedAxios')
 
 const download = async (url, path) => {
-  const writeOpts = { highWaterMark: Math.pow(2, 16) } // 65536
-  const writer = createWriteStream(path, writeOpts)
+  const writer = createWriteStream(path)
   const sharedAxios = await SharedAxios()
   return sharedAxios
     .get(`${url.replace('https://emojis.slackmojis.com', '')}`)
