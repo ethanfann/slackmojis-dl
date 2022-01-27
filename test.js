@@ -55,10 +55,11 @@ test('filter emojis when a category is specified', async (t) => {
   const results = await getPage(0)
   const prepared = prepare(results, 'Party Parrot', downloadDir)
 
-  let flag = false
-  prepared.forEach((emoji) => (flag = emoji.dest.includes('Party Parrot')))
+  const nonPartyParrot = prepared.filter(
+    (emoji) => !emoji.dest.includes('Party Parrot')
+  )
 
-  t.is(prepared.length < results.length && flag, true)
+  t.is(nonPartyParrot.length === 0, true)
 })
 
 test('obtains single pages of emojis', async (t) => {
