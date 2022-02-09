@@ -2,7 +2,6 @@ const test = require('ava')
 const fs = require('fs')
 const path = require('path')
 const extractEmojiName = require('./util/extractEmojiName')
-const getLastPage = require('./util/getLastPage')
 const download = require('./util/download')
 const getPage = require('./util/getPage')
 const obtain = require('./util/obtain')
@@ -72,24 +71,6 @@ test('obtains multiple pages of emojis', async (t) => {
   const results = await obtain(2, 3)
 
   t.is(results.length === 1000, true)
-})
-
-test('correctly obtain a given last page of 67', async (t) => {
-  const page = await getLastPage(true, 67)
-
-  t.is(page, 67)
-})
-
-test('correctly obtain a given last page of 30', async (t) => {
-  const page = await getLastPage(true, 30)
-
-  t.is(page, 30)
-})
-
-test('correctly obtain a given last page of 139', async (t) => {
-  const page = await getLastPage(true, 139)
-
-  t.is(page, 139)
 })
 
 test('parse a url to obtain an emoji name', (t) => {
