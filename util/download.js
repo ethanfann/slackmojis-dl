@@ -11,7 +11,7 @@ const download = async (url, path) => {
         response.data.pipe(writer)
         let error = null
         writer.on('error', (err) => {
-          error = err
+          error = url
           writer.close()
           reject(err)
         })

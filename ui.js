@@ -21,6 +21,7 @@ const App = ({
   const [elapsedTime, setElapsedTime] = React.useState(0)
   const [fetched, setFetched] = React.useState(false)
   const [lastPage, setLastPage] = React.useState(0)
+  const [errors, setErrors] = React.useState([])
 
   const formEmojiName = (emojiName, count) => {
     const parsedPath = path.parse(emojiName)
@@ -70,19 +71,66 @@ const App = ({
             return download(
               emoji.url,
               path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
-            ).then(() => {
-              setDownloads((previousDownloads) => [
-                ...previousDownloads,
-                {
-                  id: previousDownloads.length,
-                  title: `Downloaded ${emoji.dest}/${emoji.name}`,
-                },
-              ])
-              setElapsedTime((performance.now() - t0) / 1000)
-            })
+            )
+              .then(() => {
+                setDownloads((previousDownloads) => [
+                  ...previousDownloads,
+                  {
+                    id: previousDownloads.length,
+                    title: `Downloaded ${emoji.dest}/${emoji.name}`,
+                  },
+                ])
+                setElapsedTime((performance.now() - t0) / 1000)
+              })
+              .catch((e) => {
+                setErrors([...errors, e])
+              })
           },
-          { concurrency: 20 }
+          // Limit the download rate to prevent too many open file handles
+          { concurrency: 100 }
         )
+
+        // Retry any failed downloads
+        if (errors.length > 0) {
+          downloadList = downloadList.filter((emoji) =>
+            errors.includes(emoji.url)
+          )
+
+          Promise.map(
+            downloadList,
+            (emoji) => {
+              if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest)
+
+              let dupeCount = 0
+              while (
+                fs.existsSync(
+                  path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
+                )
+              ) {
+                dupeCount += 1
+              }
+
+              return download(
+                emoji.url,
+                path.join(emoji.dest, formEmojiName(emoji.name, dupeCount))
+              )
+                .then(() => {
+                  setDownloads((previousDownloads) => [
+                    ...previousDownloads,
+                    {
+                      id: previousDownloads.length,
+                      title: `Downloaded ${emoji.dest}/${emoji.name}`,
+                    },
+                  ])
+                  setElapsedTime((performance.now() - t0) / 1000)
+                })
+                .catch((e) => {
+                  setErrors([...errors, e])
+                })
+            },
+            { concurrency: 5 }
+          )
+        }
       })
     })
   }, [])
@@ -121,6 +169,22 @@ const App = ({
     )
   }
 
+  // if (downloads.length + errors.length === totalEmojis) {
+  //   if (errors.length === 0) {
+  //     return (
+  //       <Box marginTop={2}>
+  //         <Text color="green">✔ All Done. 0 failed downloads</Text>
+  //       </Box>
+  //     )
+  //   }
+
+  //   return (
+  //     <Box marginTop={2}>
+  //       <Text color="green"> All Done. 0 failed downloads</Text>
+  //     </Box>
+  //   )
+  // }
+
   return (
     <>
       <Static items={downloads}>
@@ -133,8 +197,8 @@ const App = ({
 
       <Box marginTop={1}>
         <Text dimColor>
-          Progress: {downloads.length} / {totalEmojis} | Elapsed Time:{' '}
-          {Math.round(elapsedTime.toFixed(2))}s |{' '}
+          Progress: {downloads.length} / {totalEmojis} Errors: {errors.length} |
+          Elapsed Time: {Math.round(elapsedTime.toFixed(2))}s |{' '}
           {Math.round(downloads.length / elapsedTime)} emoji/s
         </Text>
       </Box>
