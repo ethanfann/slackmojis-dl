@@ -169,22 +169,6 @@ const App = ({
     )
   }
 
-  // if (downloads.length + errors.length === totalEmojis) {
-  //   if (errors.length === 0) {
-  //     return (
-  //       <Box marginTop={2}>
-  //         <Text color="green">✔ All Done. 0 failed downloads</Text>
-  //       </Box>
-  //     )
-  //   }
-
-  //   return (
-  //     <Box marginTop={2}>
-  //       <Text color="green"> All Done. 0 failed downloads</Text>
-  //     </Box>
-  //   )
-  // }
-
   return (
     <>
       <Static items={downloads}>
