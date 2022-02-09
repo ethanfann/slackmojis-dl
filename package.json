@@ -21,21 +21,12 @@
     "react": "^16.14.0"
   },
   "devDependencies": {
-    "@ava/babel": "^1.0.1",
-    "@babel/register": "^7.14.5",
     "@ethancord/prettier-config": "^1.0.0",
     "ava": "^3.15.0",
-    "prettier": "2.1.2",
-    "regenerator-runtime": "^0.13.9"
-  },
-  "ava": {
-    "babel": true,
-    "require": [
-      "@babel/register"
-    ]
+    "prettier": "2.1.2"
   },
   "prettier": "@ethancord/prettier-config",
   "engines": {
-    "node": ">=12"
+    "node": ">=16"
   }
 }
