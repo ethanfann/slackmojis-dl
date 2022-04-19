@@ -26,7 +26,7 @@ npx slackmojis-dl
   --category  Specify a category to download
   --limit     Restrict the number of pages to download
   --dump      Save the emoji listing to ./emojis.json
-              Override save location with --path
+              Override save location with --dest
 ```
 
 ### Examples
