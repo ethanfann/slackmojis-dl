@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "start": "node cli.js",
-    "test": "ava"
+    "test": "check-peer-dependencies && ava"
   },
   "bin": "cli.js",
   "dependencies": {
@@ -18,11 +18,12 @@
     "ink": "^3.0.8",
     "ink-spinner": "^4.0.2",
     "meow": "^7.1.1",
-    "react": "^16.14.0"
+    "react": "^17.0.2"
   },
   "devDependencies": {
     "@ethancord/prettier-config": "^1.0.0",
     "ava": "^3.15.0",
+    "check-peer-dependencies": "^4.1.0",
     "prettier": "2.1.2"
   },
   "prettier": "@ethancord/prettier-config",
