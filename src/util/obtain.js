@@ -9,17 +9,33 @@ const resolvePageCount = (limit, lastPage) => {
 	}
 
 	const totalPages = lastPage + 1;
-	const parsedLimit = Number(limit);
 
-	if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
-		return Math.min(Math.floor(parsedLimit), totalPages);
+	if (limit === undefined || limit === null) {
+		return totalPages;
 	}
 
-	return totalPages;
+	const parsedLimit = Number(limit);
+
+	if (!Number.isFinite(parsedLimit)) {
+		return totalPages;
+	}
+
+	if (parsedLimit <= 0) {
+		return 0;
+	}
+
+	if (parsedLimit >= totalPages) {
+		return totalPages;
+	}
+
+	return Math.floor(parsedLimit);
 };
 
 const getEntireList = async (limit, lastPage) => {
 	const pageCount = resolvePageCount(limit, lastPage);
+	if (pageCount === 0) {
+		return [];
+	}
 	const pages = Array.from(
 		{ length: pageCount },
 		(_, pageNumber) => pageNumber,

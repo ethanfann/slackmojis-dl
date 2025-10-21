@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 const React = require("react");
-const importJsx = require("import-jsx");
-const { render } = require("ink");
 const meow = require("meow");
 const obtain = require("./util/obtain");
 const fs = require("node:fs");
 const getLastPage = require("./util/getLastPage");
 
-const ui = importJsx("./ui");
+const ui = require("./ui");
 
 const cli = meow(`
 	Usage
@@ -26,6 +24,9 @@ const cli = meow(`
 `);
 
 const run = async () => {
+	const inkModule = await import("ink");
+	const { render } = inkModule;
+
 	if (cli.flags.dump) {
 		try {
 			const lastPage = await getLastPage();
@@ -43,7 +44,7 @@ const run = async () => {
 		return;
 	}
 
-	render(React.createElement(ui, cli.flags));
+	render(React.createElement(ui, { ...cli.flags, ink: inkModule }));
 };
 
 run().catch((error) => {

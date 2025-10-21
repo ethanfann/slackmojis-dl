@@ -1,8 +1,6 @@
 const React = require("react");
-const { Text, Static, Box } = require("ink");
 const path = require("node:path");
 const fs = require("node:fs");
-const Spinner = require("ink-spinner").default;
 const download = require("./util/download");
 const { performance } = require("node:perf_hooks");
 const obtain = require("./util/obtain");
@@ -12,12 +10,36 @@ const prepare = require("./util/prepare");
 const { mapWithConcurrency } = require("./util/concurrency");
 
 const DOWNLOAD_CONCURRENCY = 100;
+const h = React.createElement;
+const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+const Spinner = () => {
+	const [index, setIndex] = React.useState(0);
+
+	React.useEffect(() => {
+		const timer = setInterval(() => {
+			setIndex((previous) => (previous + 1) % spinnerFrames.length);
+		}, 80);
+
+		return () => {
+			clearInterval(timer);
+		};
+	}, []);
+
+	return spinnerFrames[index];
+};
 
 const App = ({
 	dest = "emojis",
 	limit = null,
 	category: categoryName = null,
+	ink = null,
 }) => {
+	if (!ink) {
+		throw new Error("Ink components are required");
+	}
+
+	const { Text, Static, Box } = ink;
 	const [totalEmojis, setTotalEmojis] = React.useState(0);
 	const [downloads, setDownloads] = React.useState([]);
 	const [elapsedTime, setElapsedTime] = React.useState(0);
@@ -173,59 +195,62 @@ const App = ({
 			: 0;
 
 	if (lastPage === 0) {
-		return (
-			<Text>
-				<Text color="green">
-					<Spinner type="dots" />
-				</Text>
-				{" Determining Last Page Of Emojis"}
-			</Text>
+		return h(
+			Text,
+			null,
+			h(Text, { color: "green" }, h(Spinner, { type: "dots" })),
+			" Determining Last Page Of Emojis",
 		);
 	}
 
 	if (totalEmojis === 0 && !fetched) {
-		return (
-			<Text>
-				<Text color="green">
-					<Spinner type="dots" />
-				</Text>
-				{` Requesting Emoji Listing For ${limit ? limit : lastPage} Pages`}
-			</Text>
+		const pageCount = limit ? limit : lastPage;
+		return h(
+			Text,
+			null,
+			h(Text, { color: "green" }, h(Spinner, { type: "dots" })),
+			` Requesting Emoji Listing For ${pageCount} Pages`,
 		);
 	}
 
 	if (totalEmojis === 0 && fetched) {
-		return <Text color="green">✔ Up to Date</Text>;
+		return h(Text, { color: "green" }, "✔ Up to Date");
 	}
 
-	return (
-		<>
-			<Static items={downloads}>
-				{(download) => (
-					<Box key={download.id}>
-						<Text color="green">✔ {download.title}</Text>
-					</Box>
-				)}
-			</Static>
-
-			{errors.length > 0 && (
-				<Static items={errors}>
-					{(failure) => (
-						<Box key={failure.id}>
-							<Text color="red">✖ {failure.title}</Text>
-						</Box>
-					)}
-				</Static>
-			)}
-
-			<Box marginTop={1}>
-				<Text dimColor>
-					Progress: {processedEmojis} / {totalEmojis} | Successes:{" "}
-					{downloads.length} | Errors: {errors.length} | Elapsed:{" "}
-					{formattedElapsed}s | {emojisPerSecond} emoji/s
-				</Text>
-			</Box>
-		</>
+	return h(
+		React.Fragment,
+		null,
+		h(
+			Static,
+			{ items: downloads },
+			(download) =>
+				h(
+					Box,
+					{ key: download.id },
+					h(Text, { color: "green" }, `✔ ${download.title}`),
+				),
+		),
+		errors.length > 0
+			? h(
+					Static,
+					{ items: errors },
+					(failure) =>
+						h(
+							Box,
+							{ key: failure.id },
+							h(Text, { color: "red" }, `✖ ${failure.title}`),
+						),
+				)
+			: null,
+		h(
+			Box,
+			{ marginTop: 1 },
+			h(
+				Text,
+				{ dimColor: true },
+				`Progress: ${processedEmojis} / ${totalEmojis} | Successes: ${downloads.length} | Errors: ${errors.length} | Elapsed: ${formattedElapsed}s | ${emojisPerSecond} emoji/s`,
+			),
+		),
 	);
 };
 

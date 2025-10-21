@@ -139,6 +139,12 @@ test("obtains multiple pages of emojis", async (t) => {
 	t.is(results.length, sampleEmojiPages[0].length + sampleEmojiPages[1].length);
 });
 
+test("limit of zero skips fetching pages", async (t) => {
+	const results = await obtain(0, 5);
+
+	t.is(results.length, 0);
+});
+
 test("parse a url to obtain an emoji name", (t) => {
 	const name =
 		"https://emojis.slackmojis.com/emojis/images/1615690644/20375/0.gif?1615690644";
