@@ -1,32 +1,48 @@
 const getPage = require('./getPage')
-const Promise = require('bluebird')
+const { mapWithConcurrency } = require('./concurrency')
 
-const getEntireList = async function (limit, lastPage) {
-  let all = []
+const DEFAULT_PAGE_CONCURRENCY = 10
 
-  await Promise.map(
-    Array(limit ? limit : lastPage + 1).keys(),
-    (page) => {
-      return getPage(page).then((results) => {
-        all.push(...results)
-      })
-    },
-    { concurrency: 10 }
-  )
+const resolvePageCount = (limit, lastPage) => {
+  if (lastPage < 0) {
+    throw new Error('lastPage must be a non-negative number')
+  }
 
-  return all
+  const totalPages = lastPage + 1
+  const parsedLimit = Number(limit)
+
+  if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
+    return Math.min(Math.floor(parsedLimit), totalPages)
+  }
+
+  return totalPages
 }
 
-const obtain = (limit, lastPage) => {
-  return new Promise((resolve, reject) => {
-    try {
-      getEntireList(limit, lastPage).then((results) => {
-        resolve(results)
-      })
-    } catch {
-      reject(new Error('Unable to obtain Emoji Listing.'))
+const getEntireList = async (limit, lastPage) => {
+  const pageCount = resolvePageCount(limit, lastPage)
+  const pages = Array.from({ length: pageCount }, (_, pageNumber) => pageNumber)
+
+  const pageResults = await mapWithConcurrency(
+    pages,
+    DEFAULT_PAGE_CONCURRENCY,
+    async (page) => {
+      const results = await getPage(page)
+      return results
     }
-  })
+  )
+
+  return pageResults.flat()
+}
+
+const obtain = async (limit, lastPage) => {
+  try {
+    const results = await getEntireList(limit, lastPage)
+    return results
+  } catch (error) {
+    const wrappedError = new Error('Unable to obtain Emoji Listing.')
+    wrappedError.cause = error
+    throw wrappedError
+  }
 }
 
 module.exports = obtain
