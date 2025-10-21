@@ -1,6 +1,6 @@
 const axios = require("axios");
 const https = require("node:https");
-const pjson = require("../package.json");
+const pjson = require("../../package.json");
 
 let instance;
 const SharedAxios = async () => {
@@ -13,7 +13,7 @@ const SharedAxios = async () => {
 				"Content-Type": "application/json",
 				"User-Agent": `slackmojis-dl/${pjson.version}`,
 			},
-		});	
+		});
 	}
 
 	return instance;

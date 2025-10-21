@@ -2,12 +2,12 @@ const test = require("ava");
 const fs = require("node:fs");
 const path = require("node:path");
 const nock = require("nock");
-const extractEmojiName = require("./util/extractEmojiName");
-const download = require("./util/download");
-const getPage = require("./util/getPage");
-const obtain = require("./util/obtain");
-const prepare = require("./util/prepare");
-const loadExistingEmojis = require("./util/loadExistingEmojis");
+const extractEmojiName = require("./src/util/extractEmojiName");
+const download = require("./src/util/download");
+const getPage = require("./src/util/getPage");
+const obtain = require("./src/util/obtain");
+const prepare = require("./src/util/prepare");
+const loadExistingEmojis = require("./src/util/loadExistingEmojis");
 
 /* 
   Temporary Paths
