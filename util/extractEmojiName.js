@@ -1,11 +1,11 @@
-const path = require('path')
-const url = require('url')
+const path = require("node:path");
+const url = require("node:url");
 
 const extractEmojiName = (emoji_url) => {
-  const pathname = url.parse(emoji_url).pathname
-  const basename = path.basename(pathname)
+	const pathname = url.parse(emoji_url).pathname;
+	const basename = path.basename(pathname);
 
-  return decodeURIComponent(basename)
-}
+	return decodeURIComponent(basename);
+};
 
-module.exports = extractEmojiName
+module.exports = extractEmojiName;

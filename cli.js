@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-const React = require('react')
-const importJsx = require('import-jsx')
-const { render } = require('ink')
-const meow = require('meow')
-const obtain = require('./util/obtain')
-const fs = require('fs')
-const getLastPage = require('./util/getLastPage')
+const React = require("react");
+const importJsx = require("import-jsx");
+const { render } = require("ink");
+const meow = require("meow");
+const obtain = require("./util/obtain");
+const fs = require("node:fs");
+const getLastPage = require("./util/getLastPage");
 
-const ui = importJsx('./ui')
+const ui = importJsx("./ui");
 
 const cli = meow(`
 	Usage
@@ -23,30 +23,30 @@ const cli = meow(`
     $ ./cli.js --limit=5
     $ ./cli.js --dest desired/path --dump
     $ ./cli.js --category "Hangouts Blob"
-`)
+`);
 
 const run = async () => {
-  if (cli.flags.dump) {
-    try {
-      const lastPage = await getLastPage()
-      const results = await obtain(cli.flags.limit, lastPage)
-      const data = JSON.stringify(results)
-      fs.writeFileSync('emojis.json', data)
-    } catch (error) {
-      console.error(error?.message || 'Unable to dump emoji listing.')
-      if (error?.cause) {
-        console.error(error.cause)
-      }
-      process.exitCode = 1
-    }
+	if (cli.flags.dump) {
+		try {
+			const lastPage = await getLastPage();
+			const results = await obtain(cli.flags.limit, lastPage);
+			const data = JSON.stringify(results);
+			fs.writeFileSync("emojis.json", data);
+		} catch (error) {
+			console.error(error?.message || "Unable to dump emoji listing.");
+			if (error?.cause) {
+				console.error(error.cause);
+			}
+			process.exitCode = 1;
+		}
 
-    return
-  }
+		return;
+	}
 
-  render(React.createElement(ui, cli.flags))
-}
+	render(React.createElement(ui, cli.flags));
+};
 
 run().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+	console.error(error);
+	process.exit(1);
+});

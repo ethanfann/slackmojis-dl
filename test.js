@@ -1,148 +1,148 @@
-const test = require('ava')
-const fs = require('fs')
-const path = require('path')
-const nock = require('nock')
-const extractEmojiName = require('./util/extractEmojiName')
-const download = require('./util/download')
-const getPage = require('./util/getPage')
-const obtain = require('./util/obtain')
-const prepare = require('./util/prepare')
-const loadExistingEmojis = require('./util/loadExistingEmojis')
+const test = require("ava");
+const fs = require("node:fs");
+const path = require("node:path");
+const nock = require("nock");
+const extractEmojiName = require("./util/extractEmojiName");
+const download = require("./util/download");
+const getPage = require("./util/getPage");
+const obtain = require("./util/obtain");
+const prepare = require("./util/prepare");
+const loadExistingEmojis = require("./util/loadExistingEmojis");
 
 /* 
   Temporary Paths
     downloadDir = Used for tests w/ networking to slackmojis.com
     generateDir = Used for tests w/ locally generated files
 */
-const tempDir = `${__dirname}/temp`
-const downloadDir = path.join(tempDir, 'download')
-const generateDir = path.join(tempDir, 'generate')
+const tempDir = `${__dirname}/temp`;
+const downloadDir = path.join(tempDir, "download");
+const generateDir = path.join(tempDir, "generate");
 
 const sampleEmojiPages = {
-  0: [
-    {
-      id: 1,
-      name: 'party_parrot',
-      image_url:
-        'https://emojis.slackmojis.com/emojis/images/0000000001/party_parrot.gif',
-      category: { id: 1, name: 'Party Parrot' },
-    },
-    {
-      id: 2,
-      name: 'blob_dance',
-      image_url:
-        'https://emojis.slackmojis.com/emojis/images/0000000002/blob_dance.gif',
-      category: { id: 2, name: 'Hangouts Blob' },
-    },
-  ],
-  1: [
-    {
-      id: 3,
-      name: 'dealwithit',
-      image_url:
-        'https://emojis.slackmojis.com/emojis/images/0000000003/dealwithit.gif',
-      category: { id: 3, name: 'Meme' },
-    },
-  ],
-}
+	0: [
+		{
+			id: 1,
+			name: "party_parrot",
+			image_url:
+				"https://emojis.slackmojis.com/emojis/images/0000000001/party_parrot.gif",
+			category: { id: 1, name: "Party Parrot" },
+		},
+		{
+			id: 2,
+			name: "blob_dance",
+			image_url:
+				"https://emojis.slackmojis.com/emojis/images/0000000002/blob_dance.gif",
+			category: { id: 2, name: "Hangouts Blob" },
+		},
+	],
+	1: [
+		{
+			id: 3,
+			name: "dealwithit",
+			image_url:
+				"https://emojis.slackmojis.com/emojis/images/0000000003/dealwithit.gif",
+			category: { id: 3, name: "Meme" },
+		},
+	],
+};
 
 const stubEmojiPage = (page) => {
-  const payload = sampleEmojiPages[page] || []
-  nock('https://slackmojis.com')
-    .get('/emojis.json')
-    .query({ page: String(page) })
-    .reply(200, payload)
-}
+	const payload = sampleEmojiPages[page] || [];
+	nock("https://slackmojis.com")
+		.get("/emojis.json")
+		.query({ page: String(page) })
+		.reply(200, payload);
+};
 
 const stubEmojiDownload = (emoji) => {
-  const { origin, pathname } = new URL(emoji.image_url)
-  nock(origin).get(pathname).reply(200, 'gifdata', {
-    'Content-Type': 'image/gif',
-  })
-}
+	const { origin, pathname } = new URL(emoji.image_url);
+	nock(origin).get(pathname).reply(200, "gifdata", {
+		"Content-Type": "image/gif",
+	});
+};
 
 test.before(() => {
-  nock.disableNetConnect()
-})
+	nock.disableNetConnect();
+});
 
 test.beforeEach(() => {
-  nock.cleanAll()
-})
+	nock.cleanAll();
+});
 
 test.after.always(() => {
-  nock.enableNetConnect()
-  nock.cleanAll()
-})
+	nock.enableNetConnect();
+	nock.cleanAll();
+});
 
 // Clean up the temp directories
-if (fs.existsSync(downloadDir)) fs.rmSync(downloadDir, { recursive: true })
-fs.mkdirSync(downloadDir, { recursive: true })
+if (fs.existsSync(downloadDir)) fs.rmSync(downloadDir, { recursive: true });
+fs.mkdirSync(downloadDir, { recursive: true });
 
-if (fs.existsSync(generateDir)) fs.rmSync(generateDir, { recursive: true })
-fs.mkdirSync(generateDir, { recursive: true })
+if (fs.existsSync(generateDir)) fs.rmSync(generateDir, { recursive: true });
+fs.mkdirSync(generateDir, { recursive: true });
 
-test('downloads emojis', async (t) => {
-  stubEmojiPage(0)
-  const emojiFromFirstPage = sampleEmojiPages[0][0]
-  stubEmojiDownload(emojiFromFirstPage)
+test("downloads emojis", async (t) => {
+	stubEmojiPage(0);
+	const emojiFromFirstPage = sampleEmojiPages[0][0];
+	stubEmojiDownload(emojiFromFirstPage);
 
-  const results = await getPage(0)
-  const prepared = prepare(results, null, downloadDir)
+	const results = await getPage(0);
+	const prepared = prepare(results, null, downloadDir);
 
-  const emoji = prepared[0]
-  if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest, { recursive: true })
-  await download(emoji.url, path.join(emoji.dest, emoji.name))
+	const emoji = prepared[0];
+	if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest, { recursive: true });
+	await download(emoji.url, path.join(emoji.dest, emoji.name));
 
-  t.is(loadExistingEmojis(downloadDir).length === 1, true)
-})
+	t.is(loadExistingEmojis(downloadDir).length === 1, true);
+});
 
-test('loads existing emojis', async (t) => {
-  const range = [...Array(10).keys()]
-  const extensions = ['.jpg', '.png', '.gif']
+test("loads existing emojis", async (t) => {
+	const range = [...Array(10).keys()];
+	const extensions = [".jpg", ".png", ".gif"];
 
-  // Generate 10 media files
-  range.forEach((number) => {
-    const extension = extensions[Math.floor(Math.random() * 3)]
-    fs.openSync(path.join(generateDir, number + extension), 'w')
-  })
+	// Generate 10 media files
+	range.forEach((number) => {
+		const extension = extensions[Math.floor(Math.random() * 3)];
+		fs.openSync(path.join(generateDir, number + extension), "w");
+	});
 
-  const existing = loadExistingEmojis(generateDir)
+	const existing = loadExistingEmojis(generateDir);
 
-  t.is(existing.length === 10, true)
-})
+	t.is(existing.length === 10, true);
+});
 
-test('filter emojis when a category is specified', async (t) => {
-  stubEmojiPage(0)
-  const results = await getPage(0)
-  const prepared = prepare(results, 'Party Parrot', downloadDir)
+test("filter emojis when a category is specified", async (t) => {
+	stubEmojiPage(0);
+	const results = await getPage(0);
+	const prepared = prepare(results, "Party Parrot", downloadDir);
 
-  const nonPartyParrot = prepared.filter(
-    (emoji) => !emoji.dest.includes('Party Parrot')
-  )
+	const nonPartyParrot = prepared.filter(
+		(emoji) => !emoji.dest.includes("Party Parrot"),
+	);
 
-  t.is(nonPartyParrot.length === 0, true)
-})
+	t.is(nonPartyParrot.length === 0, true);
+});
 
-test('obtains single pages of emojis', async (t) => {
-  stubEmojiPage(0)
-  const results = await getPage(0)
+test("obtains single pages of emojis", async (t) => {
+	stubEmojiPage(0);
+	const results = await getPage(0);
 
-  t.is(results.length > 0, true)
-})
+	t.is(results.length > 0, true);
+});
 
-test('obtains multiple pages of emojis', async (t) => {
-  stubEmojiPage(0)
-  stubEmojiPage(1)
+test("obtains multiple pages of emojis", async (t) => {
+	stubEmojiPage(0);
+	stubEmojiPage(1);
 
-  const results = await obtain(2, 3)
+	const results = await obtain(2, 3);
 
-  t.is(results.length, sampleEmojiPages[0].length + sampleEmojiPages[1].length)
-})
+	t.is(results.length, sampleEmojiPages[0].length + sampleEmojiPages[1].length);
+});
 
-test('parse a url to obtain an emoji name', (t) => {
-  const name =
-    'https://emojis.slackmojis.com/emojis/images/1615690644/20375/0.gif?1615690644'
-  const extracted = extractEmojiName(name)
+test("parse a url to obtain an emoji name", (t) => {
+	const name =
+		"https://emojis.slackmojis.com/emojis/images/1615690644/20375/0.gif?1615690644";
+	const extracted = extractEmojiName(name);
 
-  t.is(extracted, '0.gif')
-})
+	t.is(extracted, "0.gif");
+});
