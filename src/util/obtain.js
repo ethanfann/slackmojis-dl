@@ -65,3 +65,4 @@ const obtain = async (limit, lastPage) => {
 };
 
 module.exports = obtain;
+module.exports.resolvePageCount = resolvePageCount;
