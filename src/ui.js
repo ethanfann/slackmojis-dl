@@ -130,22 +130,29 @@ const App = ({
 			? Math.round((processedEmojis / elapsedSeconds) * 10) / 10
 			: 0;
 
-	const pageSummary =
-		pageTotal > 0
-			? `Pages: ${pageStatus.fetched}/${pageTotal}${
-					pageStatus.active > 0 || pageStatus.queued > 0
-						? ` (+${pageStatus.active} fetching${
-								pageStatus.queued > 0 ? `, ${pageStatus.queued} queued` : ""
-							}${
-								pageStatus.current > 0
-									? `, latest ${Math.min(pageStatus.current, pageTotal)}/${pageTotal}`
-									: ""
-							})`
-						: pageStatus.current > 0
-							? ` (latest ${Math.min(pageStatus.current, pageTotal)}/${pageTotal})`
-							: ""
-				}`
-			: "Pages: 0/0";
+	const totalKnown =
+		Number.isFinite(pageTotal) && pageTotal >= 0
+			? Math.floor(pageTotal)
+			: null;
+	const totalLabel = totalKnown !== null ? totalKnown : "?";
+	const latestLabel =
+		totalKnown !== null && pageStatus.current > 0
+			? Math.min(pageStatus.current, totalKnown)
+			: pageStatus.current;
+
+	let pageSummary = `Pages: ${pageStatus.fetched}/${totalLabel}`;
+
+	if (pageStatus.active > 0 || pageStatus.queued > 0) {
+		const queuedLabel =
+			pageStatus.queued > 0 ? `, ${pageStatus.queued} queued` : "";
+		const latestSuffix =
+			pageStatus.current > 0
+				? `, latest ${latestLabel}/${totalLabel}`
+				: "";
+		pageSummary += ` (+${pageStatus.active} fetching${queuedLabel}${latestSuffix})`;
+	} else if (pageStatus.current > 0) {
+		pageSummary += ` (latest ${latestLabel}/${totalLabel})`;
+	}
 
 	const downloadSummary =
 		downloadStats.active > 0 || downloadStats.pending > 0
@@ -192,18 +199,22 @@ const App = ({
 			limit !== null && limit !== undefined && Number.isFinite(parsedLimit);
 		const sanitizedLimit = hasValidLimit ? Math.max(Math.floor(parsedLimit), 0) : null;
 		const pageCount =
-			pageTotal > 0
-				? pageTotal
+			totalKnown !== null
+				? totalKnown
 				: sanitizedLimit !== null
 					? sanitizedLimit
 					: lastPage !== null && Number.isFinite(lastPage)
 						? lastPage + 1
-						: 0;
+						: "?";
+		const requestLabel =
+			pageCount === "?"
+				? " Requesting Emoji Listing"
+				: ` Requesting Emoji Listing For ${pageCount} Pages`;
 		return h(
 			Text,
 			null,
 			h(Text, { color: "green" }, h(Spinner, { type: "dots" })),
-			` Requesting Emoji Listing For ${pageCount} Pages`,
+			requestLabel,
 		);
 	}
 

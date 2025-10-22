@@ -9,9 +9,6 @@ const {
 const { downloadImage } = require("./src/services/slackmojis/downloadImage");
 const { fetchPage } = require("./src/services/slackmojis/fetchPage");
 const { fetchAllEmojis } = require("./src/services/slackmojis/fetchAllEmojis");
-const {
-	resolvePageCount,
-} = require("./src/services/slackmojis/resolvePageCount");
 const { listEmojiEntries } = require("./src/services/filesystem/emojiInventory");
 
 /* 
@@ -150,17 +147,16 @@ test("limit of zero skips fetching pages", async (t) => {
 	t.is(results.length, 0);
 });
 
-test("resolvePageCount returns limit when last page is unknown", (t) => {
-	t.is(resolvePageCount(3), 3);
-});
+test("fetchAllEmojis stops after encountering an empty page", async (t) => {
+	stubEmojiPage(0);
+	nock("https://slackmojis.com")
+		.get("/emojis.json")
+		.query({ page: "1" })
+		.reply(200, []);
 
-test("resolvePageCount clamps to last page when known", (t) => {
-	t.is(resolvePageCount(10, 2), 3);
-});
+	const results = await fetchAllEmojis({ concurrency: 1 });
 
-test("resolvePageCount throws when last page is required but invalid", (t) => {
-	const error = t.throws(() => resolvePageCount(undefined, -1));
-	t.truthy(error?.message.includes("lastPage"));
+	t.is(results.length, sampleEmojiPages[0].length);
 });
 
 test("parse a url to obtain an emoji name", (t) => {

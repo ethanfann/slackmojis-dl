@@ -8,7 +8,7 @@ const {
 const initialState = {
 	status: "idle",
 	lastPage: null,
-	pageTotal: 0,
+	pageTotal: null,
 	logSequence: 0,
 	pageStatus: {
 		fetched: 0,
@@ -62,11 +62,10 @@ const applyEvent = (state, event) => {
 		case "page-total": {
 			return {
 				...state,
-				pageTotal: event.total,
-				pageStatus: {
-					...state.pageStatus,
-					queued: event.total,
-				},
+				pageTotal:
+					Number.isFinite(event.total) && event.total >= 0
+						? Math.floor(event.total)
+						: null,
 			};
 		}
 		case "page-progress": {

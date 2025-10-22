@@ -4,12 +4,7 @@ const { performance } = require("node:perf_hooks");
 const { createTaskQueue } = require("../lib/taskQueue");
 const { buildDownloadTargets } = require("../emoji/buildDownloadTargets");
 const { listEmojiEntries } = require("../services/filesystem/emojiInventory");
-const {
-	fetchPage,
-	downloadImage,
-	findLastPage,
-	resolvePageCount,
-} = require("../services/slackmojis");
+const { fetchPage, downloadImage } = require("../services/slackmojis");
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
 const DEFAULT_PAGE_CONCURRENCY = 8;
@@ -64,26 +59,24 @@ const createEmojiPipeline = ({
 		}
 
 		const limitProvided = limit !== undefined && limit !== null;
-		const parsedLimit = Number(limit);
-		const limitIsFinite = Number.isFinite(parsedLimit);
-		const shouldDetermineLastPage = !(limitProvided && limitIsFinite);
+		let maxPages = null;
 
-		let lastPage;
+		if (limitProvided) {
+			const parsedLimit = Number(limit);
+			if (Number.isFinite(parsedLimit)) {
+				if (parsedLimit <= 0) {
+					emit({ type: "page-total", total: 0 });
+					emit({ type: "status", stage: "complete" });
+					return;
+				}
 
-		if (shouldDetermineLastPage) {
-			emit({ type: "status", stage: "determine-last-page" });
-			lastPage = await findLastPage();
-			if (signal.aborted) {
-				return;
+				maxPages = Math.floor(parsedLimit);
 			}
-
-			emit({ type: "meta", lastPage });
 		}
 
-		const pageTotal = resolvePageCount(limit, lastPage);
-		emit({ type: "page-total", total: pageTotal });
+		emit({ type: "page-total", total: maxPages });
 
-		if (pageTotal === 0) {
+		if (maxPages === 0) {
 			emit({ type: "status", stage: "complete" });
 			return;
 		}
@@ -235,11 +228,40 @@ const createEmojiPipeline = ({
 			},
 		});
 
-		const pageTasks = [];
 		let fetchedPages = 0;
+		let nextPageIndex = 0;
+		let endReached = false;
+		let knownTotal = maxPages;
 
-		const schedulePageFetch = (pageIndex) => {
-			const taskPromise = pageQueue
+		const updatePageTotal = (candidate) => {
+			if (!Number.isFinite(candidate) || candidate < 0) {
+				return;
+			}
+
+			const normalized = Math.floor(candidate);
+			if (knownTotal === null || normalized < knownTotal) {
+				knownTotal = normalized;
+				emit({ type: "page-total", total: knownTotal });
+			}
+		};
+
+		const schedulePageFetch = () => {
+			if (signal.aborted) {
+				return;
+			}
+
+			if (endReached) {
+				return;
+			}
+
+			if (knownTotal !== null && nextPageIndex >= knownTotal) {
+				return;
+			}
+
+			const pageIndex = nextPageIndex;
+			nextPageIndex += 1;
+
+			pageQueue
 				.push(async () => {
 					if (signal.aborted) {
 						return;
@@ -259,8 +281,18 @@ const createEmojiPipeline = ({
 						return;
 					}
 
+					const normalizedResults = Array.isArray(pageResults)
+						? pageResults
+						: [];
+
+					if (normalizedResults.length === 0) {
+						endReached = true;
+						updatePageTotal(pageIndex);
+						return;
+					}
+
 					const prepared = buildDownloadTargets(
-						pageResults,
+						normalizedResults,
 						category,
 						outputDir,
 					);
@@ -295,9 +327,13 @@ const createEmojiPipeline = ({
 						type: "page-progress",
 						progress: {
 							fetched: fetchedPages,
-							current: Math.min(pageIndex + 1, pageTotal),
+							current: pageIndex + 1,
 						},
 					});
+
+					if (!signal.aborted) {
+						schedulePageFetch();
+					}
 				})
 				.catch((error) => {
 					if (signal.aborted) {
@@ -308,19 +344,27 @@ const createEmojiPipeline = ({
 					console.error(`Failed to fetch page ${pageIndex}: ${message}`);
 					emit({ type: "error", error });
 				});
-
-			pageTasks.push(taskPromise);
 		};
 
-		for (let pageIndex = 0; pageIndex < pageTotal; pageIndex += 1) {
+		const initialWorkers =
+			knownTotal !== null
+				? Math.min(pageConcurrency, knownTotal)
+				: pageConcurrency;
+
+		for (let index = 0; index < initialWorkers; index += 1) {
 			if (signal.aborted) {
 				break;
 			}
 
-			schedulePageFetch(pageIndex);
+			schedulePageFetch();
 		}
 
-		await Promise.allSettled(pageTasks);
+		await pageQueue.drain();
+
+		if (knownTotal === null) {
+			emit({ type: "page-total", total: fetchedPages });
+		}
+
 		await Promise.allSettled(downloadTasks);
 
 		if (!signal.aborted) {
