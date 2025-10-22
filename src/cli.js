@@ -6,6 +6,7 @@ const {
   fetchAllEmojis,
   findLastPage,
 } = require("./services/slackmojis");
+const { enterFullscreen } = require("./lib/terminal/fullscreen");
 
 const ui = require("./ui");
 
@@ -76,14 +77,29 @@ const run = async () => {
 	const downloadConcurrency =
 		numberFlag(cli.flags.downloadConcurrency) ?? undefined;
 
-	render(
-		React.createElement(ui, {
-			...cli.flags,
-			pageConcurrency,
-			downloadConcurrency,
-			ink: inkModule,
-		}),
-	);
+	const fullscreenCleanup = enterFullscreen(process.stdout);
+
+	try {
+		const app = render(
+			React.createElement(ui, {
+				...cli.flags,
+				pageConcurrency,
+				downloadConcurrency,
+				stdout: process.stdout,
+				ink: inkModule,
+			}),
+		);
+
+		if (typeof app?.waitUntilExit === "function") {
+			await app.waitUntilExit();
+		}
+
+		if (typeof app?.cleanup === "function") {
+			app.cleanup();
+		}
+	} finally {
+		fullscreenCleanup();
+	}
 };
 
 const numberFlag = (value) => {

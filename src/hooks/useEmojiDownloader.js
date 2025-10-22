@@ -9,6 +9,7 @@ const initialState = {
 	status: "idle",
 	lastPage: null,
 	pageTotal: 0,
+	logSequence: 0,
 	pageStatus: {
 		fetched: 0,
 		current: 0,
@@ -104,10 +105,16 @@ const applyEvent = (state, event) => {
 			};
 		}
 		case "download-success": {
+			const entrySequence = state.logSequence;
+
 			return {
 				...state,
+				logSequence: entrySequence + 1,
 				downloads: state.downloads.concat({
 					id: state.downloads.length,
+					sequence: entrySequence,
+					key: event.entry.key ?? `download-${entrySequence}`,
+					type: "success",
 					title: event.entry.title,
 				}),
 			};
@@ -121,11 +128,16 @@ const applyEvent = (state, event) => {
 				return state;
 			}
 
+			const entrySequence = state.logSequence;
+
 			return {
 				...state,
+				logSequence: entrySequence + 1,
 				errors: state.errors.concat({
 					id: state.errors.length,
 					key: event.entry.key,
+					type: "error",
+					sequence: entrySequence,
 					title: event.entry.title,
 				}),
 			};
@@ -139,14 +151,18 @@ const applyEvent = (state, event) => {
 		case "error": {
 			const message = describeError(event.error);
 			const fatalKey = `fatal-${state.errors.length}`;
+			const entrySequence = state.logSequence;
 
 			return {
 				...state,
 				status: "error",
 				failure: event.error,
+				logSequence: entrySequence + 1,
 				errors: state.errors.concat({
 					id: state.errors.length,
 					key: fatalKey,
+					type: "error",
+					sequence: entrySequence,
 					title: `Failed to complete download: ${message}`,
 				}),
 			};
