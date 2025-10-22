@@ -1,4 +1,5 @@
 const { fetchPage } = require("./fetchPage");
+const { MIN_LAST_PAGE_INDEX } = require("./lastPageHint");
 
 const DEFAULT_PAGE_CONCURRENCY = 10;
 
@@ -31,6 +32,10 @@ const fetchAllEmojis = async ({
 			: Number.isFinite(lastPageHint) && lastPageHint >= 0
 				? Math.floor(lastPageHint) + 1
 				: null;
+	const clampedLimit =
+		effectiveLimit !== null
+			? Math.max(effectiveLimit, MIN_LAST_PAGE_INDEX + 1)
+			: null;
 	if (maxPages === 0) {
 		return [];
 	}
@@ -47,8 +52,8 @@ const fetchAllEmojis = async ({
 	const workers = Array.from(
 		{
 			length:
-				effectiveLimit !== null
-					? Math.min(safeConcurrency, effectiveLimit)
+				clampedLimit !== null
+					? Math.min(safeConcurrency, clampedLimit)
 					: safeConcurrency,
 		},
 		async () => {
@@ -61,7 +66,7 @@ const fetchAllEmojis = async ({
 					break;
 				}
 
-				if (effectiveLimit !== null && cursor >= effectiveLimit) {
+				if (clampedLimit !== null && cursor >= clampedLimit) {
 					break;
 				}
 
@@ -90,8 +95,8 @@ const fetchAllEmojis = async ({
 			? discoveredEnd
 			: maxPages !== null
 				? maxPages
-				: effectiveLimit !== null
-					? effectiveLimit
+				: clampedLimit !== null
+					? clampedLimit
 					: pages.length;
 
 	return pages.slice(0, effectiveEnd).filter(Boolean).flat();

@@ -157,16 +157,17 @@ const App = ({
 		? resolvedColumns
 		: undefined;
 	const {
-		status,
-		lastPage,
-		pageTotal,
-		pageStatus,
-		totalEmojis,
-		downloads,
-		errors,
-		elapsedSeconds,
-		completed,
-		existingCount,
+	status,
+	lastPage,
+	pageTotal,
+	pageStatus,
+	totalEmojis,
+	expectedTotal,
+	downloads,
+	errors,
+	elapsedSeconds,
+	completed,
+	existingCount,
 	} = useEmojiDownloader({
 		dest,
 		limit,
@@ -179,7 +180,6 @@ const App = ({
 	const formattedElapsed =
 		elapsedSeconds > 0 ? elapsedSeconds.toFixed(1) : "0.0";
 	const rawDownloadsPerSecond = elapsedSeconds > 0 ? downloads.length / elapsedSeconds : 0;
-	const scheduleRate = elapsedSeconds > 0 ? totalEmojis / elapsedSeconds : 0;
 	const emojisPerSecond =
 		elapsedSeconds > 0
 			? Math.round((processedEmojis / elapsedSeconds) * 10) / 10
@@ -188,10 +188,10 @@ const App = ({
 	const totalKnown =
 		Number.isFinite(pageTotal) && pageTotal >= 0 ? Math.floor(pageTotal) : null;
 
-	const pageLabelForStatus = (() => {
-		if (totalKnown !== null && pageStatus.fetched >= totalKnown) {
-			return "All pages queued";
-		}
+const pageLabelForStatus = (() => {
+	if (totalKnown !== null && pageStatus.fetched >= totalKnown) {
+		return "Pages queued ✓";
+	}
 
 		if (totalKnown !== null || pageStatus.fetched > 0) {
 			return `Pages queued ${formatCount(pageStatus.fetched)}/${formatCount(totalKnown)}`;
@@ -273,25 +273,28 @@ const App = ({
 	}
 
 	const totalEmojiLabel =
-		totalEmojis > 0 || (completed && totalEmojis >= 0)
-			? existingCount + totalEmojis
+		expectedTotal !== null || totalEmojis > 0 || (completed && totalEmojis >= 0)
+			? existingCount + (expectedTotal ?? totalEmojis ?? 0)
 			: null;
 
 	const progressCount = existingCount + downloads.length;
+	const downloadsTarget = expectedTotal ?? totalEmojis ?? null;
 	const progressTarget =
-		totalEmojis > 0 ? existingCount + totalEmojis : null;
+		downloadsTarget !== null ? existingCount + downloadsTarget : null;
 	const progressRatio =
 		progressTarget && progressTarget > 0
 			? Math.min(Math.max(progressCount / progressTarget, 0), 1)
 			: null;
 
 	const remainingDownloads =
-		totalEmojis > 0 ? Math.max(totalEmojis - downloads.length, 0) : null;
+		downloadsTarget !== null
+			? Math.max(downloadsTarget - downloads.length, 0)
+			: null;
 	const etaSeconds =
 		remainingDownloads !== null && remainingDownloads > 0 && rawDownloadsPerSecond > 0
 			? remainingDownloads / rawDownloadsPerSecond
 			: null;
-	const etaLabel = etaSeconds !== null ? `ETA ${formatEta(etaSeconds)}` : null;
+	const etaValue = etaSeconds !== null ? formatEta(etaSeconds) : null;
 
 	const errorLabel =
 		errors.length > 0 ? `Errors ${formatCount(errors.length)}` : null;
@@ -316,33 +319,47 @@ const App = ({
 	const progressPercentLabel =
 		progressRatio !== null ? `${Math.round(progressRatio * 100)}%` : null;
 
-	const allPagesQueued =
-		totalKnown !== null && pageStatus.fetched >= totalKnown;
-	const showProgressBar =
-		progressRatio !== null && etaLabel !== null && allPagesQueued;
+	const showProgressBar = progressRatio !== null;
 
-	const progressBarLine =
-		showProgressBar
-			? h(
-				Box,
-				{ marginTop: 0, flexDirection: "row", alignItems: "center" },
-				[
-					h(ProgressBar, {
-						progress: progressRatio,
-						width: progressBarWidth,
-						ink,
-					}),
-					progressPercentLabel
-						? h(
-							Box,
-							{ marginLeft: 1 },
-							h(Text, { dimColor: true }, `${progressPercentLabel} `),
-						)
-						: null,
-					etaLabel ? h(Text, { dimColor: true }, etaLabel) : null,
-				].filter(Boolean),
-			)
-			: null;
+	const progressBarLine = (() => {
+		if (!showProgressBar || progressRatio === null) {
+			return null;
+		}
+
+		const segments = [
+			h(ProgressBar, {
+				progress: progressRatio,
+				width: progressBarWidth,
+				ink,
+			}),
+		];
+
+		if (progressPercentLabel) {
+			segments.push(
+				h(
+					Box,
+					{ marginLeft: 1 },
+					h(Text, { dimColor: true }, progressPercentLabel),
+				),
+			);
+		}
+
+		if (etaValue) {
+			segments.push(
+				h(
+					Box,
+					{ marginLeft: 1 },
+					h(Text, { dimColor: true }, `ETA ${etaValue}`),
+				),
+			);
+		}
+
+		return h(
+			Box,
+			{ marginTop: 0, flexDirection: "row", alignItems: "center" },
+			segments,
+		);
+	})();
 
 	return h(
 		Box,
@@ -354,8 +371,8 @@ const App = ({
 			ink,
 		}),
 		h(Box, { marginTop: 1 }, h(Text, { dimColor: true }, statusLine)),
-		progressBarLine,
-		completed ? h(Text, null, " ") : null,
+	progressBarLine,
+	completed ? h(Text, null, "") : null,
 	);
 };
 

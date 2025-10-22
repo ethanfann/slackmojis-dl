@@ -15,7 +15,7 @@ const memoizedFetch = () => {
 	};
 };
 
-const findLastPage = async () => {
+const findLastPage = async ({ floor = 0 } = {}) => {
 	const fetch = memoizedFetch();
 
 	const ensureFirstPageExists = async () => {
@@ -30,6 +30,20 @@ const findLastPage = async () => {
 		let upperBound = 1;
 
 		await ensureFirstPageExists();
+
+		const normalizedFloor = Number.isFinite(floor) && floor >= 0 ? Math.floor(floor) : 0;
+		if (normalizedFloor > 0) {
+			let candidate = normalizedFloor;
+			while (candidate > 0) {
+				const floorResults = await fetch(candidate);
+				if (floorResults.length > 0) {
+					lowerBound = candidate;
+					upperBound = candidate + 1;
+					break;
+				}
+				candidate = Math.floor(candidate / 2);
+			}
+		}
 
 		let results = await fetch(upperBound);
 

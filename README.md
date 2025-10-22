@@ -1,6 +1,6 @@
 # slackmojis-dl
 
-Downloads emojis from https://slackmojis.com/
+Downloads emojis from https://slackmojis.com/ using their official API
 
 ![Test](https://github.com/ethanfann/slackmojis-dl/actions/workflows/test.yml/badge.svg)
 ![Nightly Last Page Update](https://github.com/ethanfann/slackmojis-dl/actions/workflows/update-last-page.yml/badge.svg)
@@ -23,7 +23,7 @@ npx slackmojis-dl
 ### Options
 
 ```
-  --dest      Output directory. Defaults to the working directory
+  --dest      Output directory. Defaults to `./emojis`
   --category  Specify a category to download
   --limit     Restrict the number of pages to download
   --dump      Save the emoji listing to ./emojis.json

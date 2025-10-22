@@ -10,6 +10,7 @@ const initialState = {
 	lastPage: null,
 	pageTotal: null,
 	logSequence: 0,
+	expectedTotal: null,
 	existingCount: 0,
 	pageStatus: {
 		fetched: 0,
@@ -60,15 +61,24 @@ const applyEvent = (state, event) => {
 				lastPage: event.lastPage,
 			};
 		}
-		case "page-total": {
-			return {
-				...state,
-				pageTotal:
-					Number.isFinite(event.total) && event.total >= 0
-						? Math.floor(event.total)
-						: null,
-			};
-		}
+	case "page-total": {
+		return {
+			...state,
+			pageTotal:
+				Number.isFinite(event.total) && event.total >= 0
+					? Math.floor(event.total)
+					: null,
+		};
+	}
+	case "expected-total": {
+		return {
+			...state,
+			expectedTotal:
+				Number.isFinite(event.count) && event.count >= 0
+					? Math.floor(event.count)
+					: null,
+		};
+	}
 		case "existing-entries": {
 			const count =
 				Number.isFinite(event.count) && event.count >= 0

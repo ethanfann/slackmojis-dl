@@ -4,10 +4,17 @@ const { performance } = require("node:perf_hooks");
 const { createTaskQueue } = require("../lib/taskQueue");
 const { buildDownloadTargets } = require("../emoji/buildDownloadTargets");
 const { listEmojiEntries } = require("../services/filesystem/emojiInventory");
-const { fetchPage, downloadImage, resolveLastPageHint } = require("../services/slackmojis");
+const {
+	fetchPage,
+	downloadImage,
+	resolveLastPageHint,
+	findLastPage,
+	MIN_LAST_PAGE_INDEX,
+} = require("../services/slackmojis");
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
 const DEFAULT_PAGE_CONCURRENCY = 12;
+const PAGE_SIZE = 500;
 
 const normalizeKey = (category, name) => path.join(category, name);
 
@@ -83,18 +90,43 @@ const createEmojiPipeline = ({
 		}
 	}
 
-	const initialTotal =
-		maxPages !== null
-			? maxPages
-			: Number.isFinite(lastPageHint) && lastPageHint >= 0
-				? Math.floor(lastPageHint) + 1
-				: null;
-	emit({ type: "page-total", total: initialTotal });
+	const floorIndex = Math.max(
+		Number.isFinite(lastPageHint) && lastPageHint >= 0
+			? Math.floor(lastPageHint)
+			: MIN_LAST_PAGE_INDEX,
+		MIN_LAST_PAGE_INDEX,
+	);
 
-	if (maxPages === 0) {
-		emit({ type: "status", stage: "complete" });
-			return;
-		}
+	let lastPageIndex;
+	let lastPageResults;
+
+	if (maxPages !== null) {
+		lastPageIndex = Math.max(maxPages - 1, 0);
+		lastPageResults = await fetchPage(lastPageIndex);
+	} else {
+		lastPageIndex = await findLastPage({ floor: floorIndex });
+		lastPageResults = await fetchPage(lastPageIndex);
+	}
+
+	if (signal.aborted) {
+		return;
+	}
+
+	const normalizedLastPageResults = Array.isArray(lastPageResults)
+		? lastPageResults
+		: [];
+	const totalPages = maxPages !== null ? maxPages : lastPageIndex + 1;
+	emit({ type: "page-total", total: totalPages });
+	emit({ type: "meta", lastPage: lastPageIndex });
+
+	const expectedDownloads =
+		(totalPages > 1 ? (totalPages - 1) * PAGE_SIZE : 0) + normalizedLastPageResults.length;
+	emit({ type: "expected-total", count: expectedDownloads });
+
+const prefetchedPages = new Map();
+prefetchedPages.set(lastPageIndex, normalizedLastPageResults);
+let dynamicExpected = expectedDownloads;
+let scheduledDownloadTotal = 0;
 
 	const existingEntries = listEmojiEntries(outputDir);
 	const existingSet = new Set(existingEntries);
@@ -152,7 +184,7 @@ const createEmojiPipeline = ({
 			};
 		};
 
-		const downloadQueue = createTaskQueue(downloadConcurrency, {
+	const downloadQueue = createTaskQueue(downloadConcurrency, {
 			onStatsChange: (stats) => {
 				emit({ type: "download-stats", stats });
 			},
@@ -236,7 +268,7 @@ const createEmojiPipeline = ({
 
 		emit({ type: "status", stage: "fetching" });
 
-		const pageQueue = createTaskQueue(pageConcurrency, {
+	const pageQueue = createTaskQueue(pageConcurrency, {
 			onStatsChange: (stats) => {
 				emit({
 					type: "page-stats",
@@ -248,19 +280,29 @@ const createEmojiPipeline = ({
 		let fetchedPages = 0;
 		let nextPageIndex = 0;
 		let endReached = false;
-		let knownTotal = maxPages;
+	let knownTotal = totalPages;
 
-		const updatePageTotal = (candidate) => {
-			if (!Number.isFinite(candidate) || candidate < 0) {
-				return;
-			}
+const updatePageTotal = (candidate) => {
+	if (!Number.isFinite(candidate) || candidate < 0) {
+		return;
+	}
 
-			const normalized = Math.floor(candidate);
-			if (knownTotal === null || normalized < knownTotal) {
-				knownTotal = normalized;
-				emit({ type: "page-total", total: knownTotal });
-			}
-		};
+	const normalized = Math.floor(candidate);
+	if (knownTotal === null || normalized < knownTotal) {
+		knownTotal = normalized;
+		emit({ type: "page-total", total: knownTotal });
+	}
+};
+
+const getPageResults = async (pageIndex) => {
+	if (prefetchedPages.has(pageIndex)) {
+		const results = prefetchedPages.get(pageIndex);
+		prefetchedPages.delete(pageIndex);
+		return results;
+	}
+
+	return fetchPage(pageIndex);
+};
 
 		const schedulePageFetch = () => {
 			if (signal.aborted) {
@@ -292,7 +334,7 @@ const createEmojiPipeline = ({
 						},
 					});
 
-					const pageResults = await fetchPage(pageIndex);
+				const pageResults = await getPageResults(pageIndex);
 
 					if (signal.aborted) {
 						return;
@@ -308,12 +350,12 @@ const createEmojiPipeline = ({
 						return;
 					}
 
-					const prepared = buildDownloadTargets(
-						normalizedResults,
-						category,
-						outputDir,
-					);
-					const newDownloads = [];
+			const prepared = buildDownloadTargets(
+				normalizedResults,
+				category,
+				outputDir,
+			);
+			const newDownloads = [];
 
 					for (const emoji of prepared) {
 						const key = normalizeKey(emoji.category, emoji.name);
@@ -325,28 +367,42 @@ const createEmojiPipeline = ({
 						newDownloads.push(emoji);
 					}
 
-					if (newDownloads.length > 0) {
-						emit({
-							type: "downloads-scheduled",
-							count: newDownloads.length,
-						});
-					}
+			if (newDownloads.length > 0) {
+				emit({
+					type: "downloads-scheduled",
+					count: newDownloads.length,
+				});
+			}
 
-					newDownloads.forEach((emoji) => {
-						if (!signal.aborted) {
-							scheduleDownload(emoji);
-						}
-					});
+			newDownloads.forEach((emoji) => {
+				if (!signal.aborted) {
+					scheduleDownload(emoji);
+				}
+			});
 
-					fetchedPages += 1;
+			scheduledDownloadTotal += newDownloads.length;
+			const expectedForPage =
+				knownTotal !== null && pageIndex === knownTotal - 1
+					? normalizedLastPageResults.length
+					: PAGE_SIZE;
+			const prevExpected = dynamicExpected;
+			dynamicExpected = Math.max(
+				dynamicExpected + (newDownloads.length - expectedForPage),
+				scheduledDownloadTotal,
+			);
+			if (dynamicExpected !== prevExpected) {
+				emit({ type: "expected-total", count: dynamicExpected });
+			}
 
-					emit({
-						type: "page-progress",
-						progress: {
-							fetched: fetchedPages,
-							current: pageIndex + 1,
-						},
-					});
+			fetchedPages += 1;
+
+			emit({
+				type: "page-progress",
+				progress: {
+					fetched: fetchedPages,
+					current: pageIndex + 1,
+				},
+			});
 
 					if (!signal.aborted) {
 						schedulePageFetch();

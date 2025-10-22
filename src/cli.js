@@ -88,6 +88,9 @@ const run = async () => {
 		}
 	} finally {
 		fullscreenCleanup();
+		if (process.stdout.isTTY) {
+			console.log();
+		}
 	}
 };
 

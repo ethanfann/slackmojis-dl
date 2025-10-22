@@ -34,7 +34,10 @@ const buildDownloadTargets = (emojis, categoryFilter, outputDir) => {
 				name: extractEmojiName(emoji.image_url),
 				category,
 			};
-		});
+		})
+		.filter((emoji) =>
+			typeof emoji.name === "string" && emoji.name.trim() !== "" && emoji.name !== ".",
+		);
 };
 
 module.exports = { buildDownloadTargets, extractEmojiName };
