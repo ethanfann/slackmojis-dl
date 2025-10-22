@@ -1,4 +1,4 @@
-const React = require("react");
+import React from "react";
 
 const getStream = (stdout) => {
 	if (stdout && typeof stdout.write === "function") {
@@ -57,4 +57,4 @@ const useTerminalDimensions = (stdout) => {
 	return { columns, rows };
 };
 
-module.exports = { useTerminalDimensions };
+export { useTerminalDimensions };

@@ -1,9 +1,9 @@
-const React = require("react");
-const {
+import React from "react";
+import {
 	createEmojiPipeline,
 	DEFAULT_DOWNLOAD_CONCURRENCY,
 	DEFAULT_PAGE_CONCURRENCY,
-} = require("../pipeline/emojiPipeline");
+} from "../pipeline/emoji-pipeline.js";
 
 const initialState = {
 	status: "idle",
@@ -61,24 +61,24 @@ const applyEvent = (state, event) => {
 				lastPage: event.lastPage,
 			};
 		}
-	case "page-total": {
-		return {
-			...state,
-			pageTotal:
-				Number.isFinite(event.total) && event.total >= 0
-					? Math.floor(event.total)
-					: null,
-		};
-	}
-	case "expected-total": {
-		return {
-			...state,
-			expectedTotal:
-				Number.isFinite(event.count) && event.count >= 0
-					? Math.floor(event.count)
-					: null,
-		};
-	}
+		case "page-total": {
+			return {
+				...state,
+				pageTotal:
+					Number.isFinite(event.total) && event.total >= 0
+						? Math.floor(event.total)
+						: null,
+			};
+		}
+		case "expected-total": {
+			return {
+				...state,
+				expectedTotal:
+					Number.isFinite(event.count) && event.count >= 0
+						? Math.floor(event.count)
+						: null,
+			};
+		}
 		case "existing-entries": {
 			const count =
 				Number.isFinite(event.count) && event.count >= 0
@@ -243,4 +243,4 @@ const useEmojiDownloader = ({
 	return state;
 };
 
-module.exports = { useEmojiDownloader, initialState };
+export { useEmojiDownloader, initialState };

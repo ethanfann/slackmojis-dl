@@ -1,16 +1,16 @@
-const path = require("node:path");
-const fsPromises = require("node:fs/promises");
-const { performance } = require("node:perf_hooks");
-const { createTaskQueue } = require("../lib/taskQueue");
-const { buildDownloadTargets } = require("../emoji/buildDownloadTargets");
-const { listEmojiEntries } = require("../services/filesystem/emojiInventory");
-const {
+import path from "node:path";
+import * as fsPromises from "node:fs/promises";
+import { performance } from "node:perf_hooks";
+import { createTaskQueue } from "../lib/task-queue.js";
+import { buildDownloadTargets } from "../emoji/build-download-targets.js";
+import { listEmojiEntries } from "../services/filesystem/emoji-inventory.js";
+import {
 	fetchPage,
 	downloadImage,
 	resolveLastPageHint,
 	findLastPage,
 	MIN_LAST_PAGE_INDEX,
-} = require("../services/slackmojis");
+} from "../services/slackmojis/index.js";
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
 const DEFAULT_PAGE_CONCURRENCY = 12;
@@ -460,7 +460,7 @@ const createEmojiPipeline = ({
 	};
 };
 
-module.exports = {
+export {
 	createEmojiPipeline,
 	DEFAULT_DOWNLOAD_CONCURRENCY,
 	DEFAULT_PAGE_CONCURRENCY,

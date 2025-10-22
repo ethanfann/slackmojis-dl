@@ -1,13 +1,17 @@
 #!/usr/bin/env node
-const React = require("react");
-const meow = require("meow");
-const fs = require("node:fs");
-const { fetchAllEmojis, resolveLastPageHint } = require("./services/slackmojis");
-const { enterFullscreen } = require("./lib/terminal/fullscreen");
+import React from "react";
+import meow from "meow";
+import fs from "node:fs";
+import ui from "./ui.js";
+import {
+	fetchAllEmojis,
+	resolveLastPageHint,
+} from "./services/slackmojis/index.js";
+import { enterFullscreen } from "./lib/terminal/full-screen.js";
 
-const ui = require("./ui");
+const meowCli = meow.default ?? meow;
 
-const cli = meow(
+const cli = meowCli(
 	`
 	Usage
 	  $ ./cli.js

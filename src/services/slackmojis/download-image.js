@@ -1,6 +1,6 @@
-const fs = require("node:fs");
-const { pipeline } = require("node:stream/promises");
-const { getStreamClient } = require("./client");
+import fs from "node:fs";
+import { pipeline } from "node:stream/promises";
+import { getStreamClient } from "./client.js";
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -59,4 +59,4 @@ const downloadImage = async (url, destination, options = {}) => {
 	throw failure;
 };
 
-module.exports = { downloadImage };
+export { downloadImage };

@@ -2,6 +2,7 @@
 	"name": "slackmojis-dl",
 	"version": "3.0.0",
 	"description": "Downloads all emojis from https://slackmojis.com",
+	"type": "module",
 	"main": "src/cli.js",
 	"author": "Ethan Fann",
 	"license": "MIT",

@@ -1,4 +1,4 @@
-const { fetchPage } = require("./fetchPage");
+import { fetchPage } from "./fetch-page.js";
 
 const memoizedFetch = () => {
 	const cache = new Map();
@@ -86,4 +86,4 @@ const findLastPage = async ({ floor = 0 } = {}) => {
 	}
 };
 
-module.exports = { findLastPage };
+export { findLastPage };

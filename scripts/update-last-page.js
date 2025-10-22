@@ -1,8 +1,11 @@
 #!/usr/bin/env node
-const fs = require("node:fs");
-const path = require("node:path");
-const { findLastPage } = require("../src/services/slackmojis/findLastPage");
-const { MIN_LAST_PAGE_INDEX } = require("../src/services/slackmojis/lastPageHint");
+import path from "node:path";
+import { promises as fs } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { findLastPage } from "../src/services/slackmojis/find-last-page.js";
+import { MIN_LAST_PAGE_INDEX } from "../src/services/slackmojis/last-page-hint.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const run = async () => {
 	const lastPage = await findLastPage({ floor: MIN_LAST_PAGE_INDEX });
@@ -10,8 +13,8 @@ const run = async () => {
 	const outputDir = path.join(__dirname, "..", "data");
 	const outputPath = path.join(outputDir, "lastPage.json");
 
-	await fs.promises.mkdir(outputDir, { recursive: true });
-	await fs.promises.writeFile(outputPath, JSON.stringify(data, null, 2));
+	await fs.mkdir(outputDir, { recursive: true });
+	await fs.writeFile(outputPath, JSON.stringify(data, null, 2));
 };
 
 run().catch((error) => {

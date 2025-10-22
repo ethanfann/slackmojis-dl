@@ -1,9 +1,14 @@
-const https = require("node:https");
-const path = require("node:path");
+import https from "node:https";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const HINT_URL =
 	"https://raw.githubusercontent.com/ethanfann/slackmojis-dl/main/data/lastPage.json";
 const MIN_LAST_PAGE_INDEX = 199;
+
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let localSnapshot = null;
 try {
@@ -63,4 +68,4 @@ const resolveLastPageHint = async () => {
 	return Math.max(best, MIN_LAST_PAGE_INDEX);
 };
 
-module.exports = { resolveLastPageHint, MIN_LAST_PAGE_INDEX };
+export { resolveLastPageHint, MIN_LAST_PAGE_INDEX };

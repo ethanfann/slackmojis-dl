@@ -1,4 +1,4 @@
-const { getJsonClient } = require("./client");
+import { getJsonClient } from "./client.js";
 
 const fetchPage = async (page) => {
 	const client = getJsonClient();
@@ -8,4 +8,4 @@ const fetchPage = async (page) => {
 	return response.data;
 };
 
-module.exports = { fetchPage };
+export { fetchPage };

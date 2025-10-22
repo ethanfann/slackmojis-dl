@@ -1,14 +1,5 @@
-const { fetchPage } = require("./fetchPage");
-const { fetchAllEmojis } = require("./fetchAllEmojis");
-const { downloadImage } = require("./downloadImage");
-const { findLastPage } = require("./findLastPage");
-const { resolveLastPageHint, MIN_LAST_PAGE_INDEX } = require("./lastPageHint");
-
-module.exports = {
-	fetchPage,
-	fetchAllEmojis,
-	downloadImage,
-	findLastPage,
-	resolveLastPageHint,
-	MIN_LAST_PAGE_INDEX,
-};
+export { fetchPage } from "./fetch-page.js";
+export { fetchAllEmojis } from "./fetch-all-emojis.js";
+export { downloadImage } from "./download-image.js";
+export { findLastPage } from "./find-last-page.js";
+export { resolveLastPageHint, MIN_LAST_PAGE_INDEX } from "./last-page-hint.js";

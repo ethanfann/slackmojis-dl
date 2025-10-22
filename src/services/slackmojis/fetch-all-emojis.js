@@ -1,5 +1,5 @@
-const { fetchPage } = require("./fetchPage");
-const { MIN_LAST_PAGE_INDEX } = require("./lastPageHint");
+import { fetchPage } from "./fetch-page.js";
+import { MIN_LAST_PAGE_INDEX } from "./last-page-hint.js";
 
 const DEFAULT_PAGE_CONCURRENCY = 10;
 
@@ -102,4 +102,4 @@ const fetchAllEmojis = async ({
 	return pages.slice(0, effectiveEnd).filter(Boolean).flat();
 };
 
-module.exports = { fetchAllEmojis };
+export { fetchAllEmojis };

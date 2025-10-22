@@ -1,4 +1,4 @@
-const path = require("node:path");
+import path from "node:path";
 
 const extractEmojiName = (emojiUrl) => {
 	try {
@@ -40,4 +40,4 @@ const buildDownloadTargets = (emojis, categoryFilter, outputDir) => {
 		);
 };
 
-module.exports = { buildDownloadTargets, extractEmojiName };
+export { buildDownloadTargets, extractEmojiName };

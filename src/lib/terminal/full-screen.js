@@ -52,4 +52,4 @@ const enterFullscreen = (stream = process.stdout) => {
 	};
 };
 
-module.exports = { enterFullscreen };
+export { enterFullscreen };

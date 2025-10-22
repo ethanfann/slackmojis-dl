@@ -1,22 +1,26 @@
-const test = require("ava");
-const fs = require("node:fs");
-const path = require("node:path");
-const nock = require("nock");
-const {
+import test from "ava";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import nock from "nock";
+import {
 	extractEmojiName,
 	buildDownloadTargets,
-} = require("./src/emoji/buildDownloadTargets");
-const { downloadImage } = require("./src/services/slackmojis/downloadImage");
-const { fetchPage } = require("./src/services/slackmojis/fetchPage");
-const { fetchAllEmojis } = require("./src/services/slackmojis/fetchAllEmojis");
-const { listEmojiEntries } = require("./src/services/filesystem/emojiInventory");
+} from "../src/emoji/build-download-targets.js";
+import { downloadImage } from "../src/services/slackmojis/download-image.js";
+import { fetchPage } from "../src/services/slackmojis/fetch-page.js";
+import { fetchAllEmojis } from "../src/services/slackmojis/fetch-all-emojis.js";
+import { listEmojiEntries } from "../src/services/filesystem/emoji-inventory.js";
 
-/* 
-  Temporary Paths
-    downloadDir = Used for tests w/ networking to slackmojis.com
-    generateDir = Used for tests w/ locally generated files
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.join(__dirname, "..");
+
+/*
+	Temporary Paths
+	 downloadDir = Used for tests w/ networking to slackmojis.com
+	 generateDir = Used for tests w/ locally generated files
 */
-const tempDir = `${__dirname}/temp`;
+const tempDir = path.join(projectRoot, "temp");
 const downloadDir = path.join(tempDir, "download");
 const generateDir = path.join(tempDir, "generate");
 

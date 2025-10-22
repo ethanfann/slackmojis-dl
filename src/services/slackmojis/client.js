@@ -1,5 +1,8 @@
-const axios = require("axios");
-const https = require("node:https");
+import axios from "axios";
+import https from "node:https";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 const pkg = require("../../../package.json");
 
 const JSON_BASE_URL = "https://slackmojis.com";
@@ -39,7 +42,4 @@ const ensureClients = () => {
 const getJsonClient = () => ensureClients().json;
 const getStreamClient = () => ensureClients().stream;
 
-module.exports = {
-	getJsonClient,
-	getStreamClient,
-};
+export { getJsonClient, getStreamClient };

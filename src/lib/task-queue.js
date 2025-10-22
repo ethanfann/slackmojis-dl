@@ -87,4 +87,4 @@ const createTaskQueue = (limit, { onStatsChange } = {}) => {
 	};
 };
 
-module.exports = { createTaskQueue };
+export { createTaskQueue };

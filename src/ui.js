@@ -1,6 +1,6 @@
-const React = require("react");
-const { useEmojiDownloader } = require("./hooks/useEmojiDownloader");
-const { useTerminalDimensions } = require("./hooks/useTerminalDimensions");
+import React from "react";
+import { useEmojiDownloader } from "./hooks/use-emoji-downloader.js";
+import { useTerminalDimensions } from "./hooks/use-terminal-dimensions.js";
 
 const h = React.createElement;
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -404,4 +404,4 @@ const App = ({
 	);
 };
 
-module.exports = App;
+export default App;
