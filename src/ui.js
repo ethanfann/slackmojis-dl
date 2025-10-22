@@ -21,10 +21,12 @@ const Spinner = () => {
 };
 
 const App = ({
-	dest = "emojis",
-	limit = null,
-	category: categoryName = null,
-	ink = null,
+    dest = "emojis",
+    limit = null,
+    category: categoryName = null,
+    pageConcurrency = null,
+    downloadConcurrency = null,
+    ink = null,
 }) => {
 	if (!ink) {
 		throw new Error("Ink components are required");
@@ -42,11 +44,13 @@ const App = ({
 		errors,
 		elapsedSeconds,
 		completed,
-	} = useEmojiDownloader({
-		dest,
-		limit,
-		category: categoryName,
-	});
+    } = useEmojiDownloader({
+        dest,
+        limit,
+        category: categoryName,
+        pageConcurrency,
+        downloadConcurrency,
+    });
 
 	const processedEmojis = downloads.length + errors.length;
 	const formattedElapsed =

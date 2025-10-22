@@ -2,12 +2,14 @@ const test = require("ava");
 const fs = require("node:fs");
 const path = require("node:path");
 const nock = require("nock");
-const extractEmojiName = require("./src/util/extractEmojiName");
-const download = require("./src/util/download");
-const getPage = require("./src/util/getPage");
-const obtain = require("./src/util/obtain");
-const prepare = require("./src/util/prepare");
-const loadExistingEmojis = require("./src/util/loadExistingEmojis");
+const {
+	extractEmojiName,
+	buildDownloadTargets,
+} = require("./src/emoji/buildDownloadTargets");
+const { downloadImage } = require("./src/services/slackmojis/downloadImage");
+const { fetchPage } = require("./src/services/slackmojis/fetchPage");
+const { fetchAllEmojis } = require("./src/services/slackmojis/fetchAllEmojis");
+const { listEmojiEntries } = require("./src/services/filesystem/emojiInventory");
 
 /* 
   Temporary Paths
@@ -86,14 +88,14 @@ test("downloads emojis", async (t) => {
 	const emojiFromFirstPage = sampleEmojiPages[0][0];
 	stubEmojiDownload(emojiFromFirstPage);
 
-	const results = await getPage(0);
-	const prepared = prepare(results, null, downloadDir);
+	const results = await fetchPage(0);
+	const prepared = buildDownloadTargets(results, null, downloadDir);
 
 	const emoji = prepared[0];
 	if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest, { recursive: true });
-	await download(emoji.url, path.join(emoji.dest, emoji.name));
+	await downloadImage(emoji.url, path.join(emoji.dest, emoji.name));
 
-	t.is(loadExistingEmojis(downloadDir).length === 1, true);
+	t.is(listEmojiEntries(downloadDir).length === 1, true);
 });
 
 test("loads existing emojis", async (t) => {
@@ -106,15 +108,15 @@ test("loads existing emojis", async (t) => {
 		fs.openSync(path.join(generateDir, number + extension), "w");
 	});
 
-	const existing = loadExistingEmojis(generateDir);
+	const existing = listEmojiEntries(generateDir);
 
 	t.is(existing.length === 10, true);
 });
 
 test("filter emojis when a category is specified", async (t) => {
 	stubEmojiPage(0);
-	const results = await getPage(0);
-	const prepared = prepare(results, "Party Parrot", downloadDir);
+	const results = await fetchPage(0);
+	const prepared = buildDownloadTargets(results, "Party Parrot", downloadDir);
 
 	const nonPartyParrot = prepared.filter(
 		(emoji) => !emoji.dest.includes("Party Parrot"),
@@ -125,7 +127,7 @@ test("filter emojis when a category is specified", async (t) => {
 
 test("obtains single pages of emojis", async (t) => {
 	stubEmojiPage(0);
-	const results = await getPage(0);
+	const results = await fetchPage(0);
 
 	t.is(results.length > 0, true);
 });
@@ -134,13 +136,13 @@ test("obtains multiple pages of emojis", async (t) => {
 	stubEmojiPage(0);
 	stubEmojiPage(1);
 
-	const results = await obtain(2, 3);
+	const results = await fetchAllEmojis({ limit: 2, lastPage: 3 });
 
 	t.is(results.length, sampleEmojiPages[0].length + sampleEmojiPages[1].length);
 });
 
 test("limit of zero skips fetching pages", async (t) => {
-	const results = await obtain(0, 5);
+	const results = await fetchAllEmojis({ limit: 0, lastPage: 5 });
 
 	t.is(results.length, 0);
 });

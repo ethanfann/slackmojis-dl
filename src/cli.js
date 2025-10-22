@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 const React = require("react");
 const meow = require("meow");
-const obtain = require("./util/obtain");
 const fs = require("node:fs");
-const getLastPage = require("./util/getLastPage");
+const {
+  fetchAllEmojis,
+  findLastPage,
+} = require("./services/slackmojis");
 
 const ui = require("./ui");
 
-const cli = meow(`
+const cli = meow(
+	`
 	Usage
 	  $ ./cli.js
   Options
     --dest  Output directory that defaults to the working directory
     --limit Restrict the number of pages to download
+    --page-concurrency  Number of page fetch workers (default 8)
+    --download-concurrency  Number of concurrent downloads (default 200)
     --dump  Save the emoji listing to ./emojis.json
             Override save location with --path
     --category The category name to download
@@ -21,7 +26,18 @@ const cli = meow(`
     $ ./cli.js --limit=5
     $ ./cli.js --dest desired/path --dump
     $ ./cli.js --category "Hangouts Blob"
-`);
+`,
+	{
+		flags: {
+			dest: { type: "string" },
+			limit: { type: "number" },
+			"page-concurrency": { type: "number" },
+			"download-concurrency": { type: "number" },
+			dump: { type: "boolean" },
+			category: { type: "string" },
+		},
+	},
+);
 
 const run = async () => {
 	const inkModule = await import("ink");
@@ -29,8 +45,11 @@ const run = async () => {
 
 	if (cli.flags.dump) {
 		try {
-			const lastPage = await getLastPage();
-			const results = await obtain(cli.flags.limit, lastPage);
+			const lastPage = await findLastPage();
+			const results = await fetchAllEmojis({
+				limit: cli.flags.limit,
+				lastPage,
+			});
 			const data = JSON.stringify(results);
 			fs.writeFileSync("emojis.json", data);
 		} catch (error) {
@@ -44,7 +63,28 @@ const run = async () => {
 		return;
 	}
 
-	render(React.createElement(ui, { ...cli.flags, ink: inkModule }));
+	const pageConcurrency =
+		numberFlag(cli.flags.pageConcurrency) ?? undefined;
+	const downloadConcurrency =
+		numberFlag(cli.flags.downloadConcurrency) ?? undefined;
+
+	render(
+		React.createElement(ui, {
+			...cli.flags,
+			pageConcurrency,
+			downloadConcurrency,
+			ink: inkModule,
+		}),
+	);
+};
+
+const numberFlag = (value) => {
+	if (value === undefined || value === null) {
+		return undefined;
+	}
+
+	const parsed = Number(value);
+	return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
 };
 
 run().catch((error) => {

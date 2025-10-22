@@ -1,11 +1,8 @@
 const fs = require("node:fs");
 const { pipeline } = require("node:stream/promises");
-const SharedAxios = require("./sharedAxios");
+const { getStreamClient } = require("./client");
 
-const wait = (ms) =>
-	new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_RETRY_DELAY_MS = 250;
@@ -23,24 +20,23 @@ const removePartialFile = async (filePath) => {
 	try {
 		await fs.promises.unlink(filePath);
 	} catch (error) {
-		if (error && error.code !== "ENOENT") {
-			// Best effort cleanup; ignore other errors
+		if (!error || error.code !== "ENOENT") {
+			// best effort cleanup; ignore other errors
 		}
 	}
 };
 
-const download = async (url, destination, options = {}) => {
-	const sharedAxios = await SharedAxios();
+const downloadImage = async (url, destination, options = {}) => {
+	const client = getStreamClient();
 	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
 	const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
 
 	let attempt = 0;
-	let lastError;
+	let lastError = null;
 
 	while (attempt <= maxRetries) {
 		try {
-			const response = await sharedAxios.get(toRelativePath(url));
-
+			const response = await client.get(toRelativePath(url));
 			await pipeline(response.data, fs.createWriteStream(destination));
 			return destination;
 		} catch (error) {
@@ -59,9 +55,8 @@ const download = async (url, destination, options = {}) => {
 	const failure = new Error(
 		`Failed to download ${url} after ${maxRetries + 1} attempts.`,
 	);
-
 	failure.cause = lastError;
 	throw failure;
 };
 
-module.exports = download;
+module.exports = { downloadImage };

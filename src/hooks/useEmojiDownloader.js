@@ -160,8 +160,8 @@ const useEmojiDownloader = ({
 	dest,
 	limit,
 	category,
-	pageConcurrency = DEFAULT_PAGE_CONCURRENCY,
-	downloadConcurrency = DEFAULT_DOWNLOAD_CONCURRENCY,
+	pageConcurrency,
+	downloadConcurrency,
 }) => {
 	const [state, setState] = React.useState(initialState);
 
@@ -177,8 +177,10 @@ const useEmojiDownloader = ({
 			dest,
 			limit,
 			category,
-			pageConcurrency,
-			downloadConcurrency,
+			pageConcurrency:
+				pageConcurrency ?? DEFAULT_PAGE_CONCURRENCY,
+			downloadConcurrency:
+				downloadConcurrency ?? DEFAULT_DOWNLOAD_CONCURRENCY,
 			onEvent: (event) => {
 				if (cancelled) {
 					return;

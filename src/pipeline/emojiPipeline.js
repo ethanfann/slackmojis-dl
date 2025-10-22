@@ -1,13 +1,15 @@
 const path = require("node:path");
 const fsPromises = require("node:fs/promises");
 const { performance } = require("node:perf_hooks");
-const getLastPage = require("../util/getLastPage");
-const getPage = require("../util/getPage");
-const prepare = require("../util/prepare");
-const loadExistingEmojis = require("../util/loadExistingEmojis");
-const download = require("../util/download");
-const { resolvePageCount } = require("../util/obtain");
 const { createTaskQueue } = require("../lib/taskQueue");
+const { buildDownloadTargets } = require("../emoji/buildDownloadTargets");
+const { listEmojiEntries } = require("../services/filesystem/emojiInventory");
+const {
+	fetchPage,
+	downloadImage,
+	findLastPage,
+	resolvePageCount,
+} = require("../services/slackmojis");
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
 const DEFAULT_PAGE_CONCURRENCY = 8;
@@ -54,8 +56,8 @@ const createEmojiPipeline = ({
 	const run = async () => {
 		emit({ type: "status", stage: "determine-last-page" });
 
-		const outputDir =
-			dest === "emojis" ? `${process.cwd()}/emojis` : `${dest}/emojis`;
+		const rootDir = dest === "emojis" ? process.cwd() : dest;
+		const outputDir = path.join(rootDir, "emojis");
 
 		await fsPromises.mkdir(outputDir, { recursive: true });
 
@@ -63,7 +65,7 @@ const createEmojiPipeline = ({
 			return;
 		}
 
-		const lastPage = await getLastPage();
+		const lastPage = await findLastPage();
 		if (signal.aborted) {
 			return;
 		}
@@ -78,9 +80,7 @@ const createEmojiPipeline = ({
 			return;
 		}
 
-		const existingEntries =
-			loadExistingEmojis(outputDir)?.map((entry) => path.normalize(entry)) ||
-			[];
+		const existingEntries = listEmojiEntries(outputDir);
 		const existingSet = new Set(existingEntries);
 		const scheduledKeys = new Set(existingEntries);
 		const reservedKeys = new Set();
@@ -163,7 +163,7 @@ const createEmojiPipeline = ({
 					}
 
 					try {
-						await download(emoji.url, destination.fullPath, {
+						await downloadImage(emoji.url, destination.fullPath, {
 							maxRetries: 2,
 						});
 
@@ -245,13 +245,17 @@ const createEmojiPipeline = ({
 						},
 					});
 
-					const pageResults = await getPage(pageIndex);
+					const pageResults = await fetchPage(pageIndex);
 
 					if (signal.aborted) {
 						return;
 					}
 
-					const prepared = prepare(pageResults, category, outputDir);
+					const prepared = buildDownloadTargets(
+						pageResults,
+						category,
+						outputDir,
+					);
 					const newDownloads = [];
 
 					for (const emoji of prepared) {
