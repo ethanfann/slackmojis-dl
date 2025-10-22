@@ -65,75 +65,76 @@ const createEmojiPipeline = ({
 			return;
 		}
 
-	const limitProvided = limit !== undefined && limit !== null;
-	let maxPages = null;
-	let lastPageHint = null;
+		const limitProvided = limit !== undefined && limit !== null;
+		let maxPages = null;
+		let lastPageHint = null;
 
-	if (limitProvided) {
-		const parsedLimit = Number(limit);
-		if (Number.isFinite(parsedLimit)) {
-			if (parsedLimit <= 0) {
-				emit({ type: "page-total", total: 0 });
-				emit({ type: "status", stage: "complete" });
-				return;
+		if (limitProvided) {
+			const parsedLimit = Number(limit);
+			if (Number.isFinite(parsedLimit)) {
+				if (parsedLimit <= 0) {
+					emit({ type: "page-total", total: 0 });
+					emit({ type: "status", stage: "complete" });
+					return;
+				}
+
+				maxPages = Math.floor(parsedLimit);
 			}
-
-			maxPages = Math.floor(parsedLimit);
 		}
-	}
 
-	if (maxPages === null) {
-		try {
-			lastPageHint = await resolveLastPageHint();
-		} catch {
-			lastPageHint = null;
+		if (maxPages === null) {
+			try {
+				lastPageHint = await resolveLastPageHint();
+			} catch {
+				lastPageHint = null;
+			}
 		}
-	}
 
-	const floorIndex = Math.max(
-		Number.isFinite(lastPageHint) && lastPageHint >= 0
-			? Math.floor(lastPageHint)
-			: MIN_LAST_PAGE_INDEX,
-		MIN_LAST_PAGE_INDEX,
-	);
+		const floorIndex = Math.max(
+			Number.isFinite(lastPageHint) && lastPageHint >= 0
+				? Math.floor(lastPageHint)
+				: MIN_LAST_PAGE_INDEX,
+			MIN_LAST_PAGE_INDEX,
+		);
 
-	let lastPageIndex;
-	let lastPageResults;
+		let lastPageIndex;
+		let lastPageResults;
 
-	if (maxPages !== null) {
-		lastPageIndex = Math.max(maxPages - 1, 0);
-		lastPageResults = await fetchPage(lastPageIndex);
-	} else {
-		lastPageIndex = await findLastPage({ floor: floorIndex });
-		lastPageResults = await fetchPage(lastPageIndex);
-	}
+		if (maxPages !== null) {
+			lastPageIndex = Math.max(maxPages - 1, 0);
+			lastPageResults = await fetchPage(lastPageIndex);
+		} else {
+			lastPageIndex = await findLastPage({ floor: floorIndex });
+			lastPageResults = await fetchPage(lastPageIndex);
+		}
 
-	if (signal.aborted) {
-		return;
-	}
+		if (signal.aborted) {
+			return;
+		}
 
-	const normalizedLastPageResults = Array.isArray(lastPageResults)
-		? lastPageResults
-		: [];
-	const totalPages = maxPages !== null ? maxPages : lastPageIndex + 1;
-	emit({ type: "page-total", total: totalPages });
-	emit({ type: "meta", lastPage: lastPageIndex });
+		const normalizedLastPageResults = Array.isArray(lastPageResults)
+			? lastPageResults
+			: [];
+		const totalPages = maxPages !== null ? maxPages : lastPageIndex + 1;
+		emit({ type: "page-total", total: totalPages });
+		emit({ type: "meta", lastPage: lastPageIndex });
 
-	const expectedDownloads =
-		(totalPages > 1 ? (totalPages - 1) * PAGE_SIZE : 0) + normalizedLastPageResults.length;
-	emit({ type: "expected-total", count: expectedDownloads });
+		const expectedDownloads =
+			(totalPages > 1 ? (totalPages - 1) * PAGE_SIZE : 0) +
+			normalizedLastPageResults.length;
+		emit({ type: "expected-total", count: expectedDownloads });
 
-const prefetchedPages = new Map();
-prefetchedPages.set(lastPageIndex, normalizedLastPageResults);
-let dynamicExpected = expectedDownloads;
-let scheduledDownloadTotal = 0;
+		const prefetchedPages = new Map();
+		prefetchedPages.set(lastPageIndex, normalizedLastPageResults);
+		let dynamicExpected = expectedDownloads;
+		let scheduledDownloadTotal = 0;
 
-	const existingEntries = listEmojiEntries(outputDir);
-	const existingSet = new Set(existingEntries);
-	const scheduledKeys = new Set(existingEntries);
-	const reservedKeys = new Set();
+		const existingEntries = listEmojiEntries(outputDir);
+		const existingSet = new Set(existingEntries);
+		const scheduledKeys = new Set(existingEntries);
+		const reservedKeys = new Set();
 
-	emit({ type: "existing-entries", count: existingEntries.length });
+		emit({ type: "existing-entries", count: existingEntries.length });
 
 		let startTime = null;
 
@@ -184,7 +185,7 @@ let scheduledDownloadTotal = 0;
 			};
 		};
 
-	const downloadQueue = createTaskQueue(downloadConcurrency, {
+		const downloadQueue = createTaskQueue(downloadConcurrency, {
 			onStatsChange: (stats) => {
 				emit({ type: "download-stats", stats });
 			},
@@ -228,7 +229,7 @@ let scheduledDownloadTotal = 0;
 							type: "download-success",
 							entry: {
 								key: destination.eventKey,
-								title: `Downloaded ${emoji.dest}/${destination.fileName}`,
+								title: `✓ ${emoji.dest}/${destination.fileName}`,
 							},
 						});
 					} catch (error) {
@@ -268,7 +269,7 @@ let scheduledDownloadTotal = 0;
 
 		emit({ type: "status", stage: "fetching" });
 
-	const pageQueue = createTaskQueue(pageConcurrency, {
+		const pageQueue = createTaskQueue(pageConcurrency, {
 			onStatsChange: (stats) => {
 				emit({
 					type: "page-stats",
@@ -280,29 +281,29 @@ let scheduledDownloadTotal = 0;
 		let fetchedPages = 0;
 		let nextPageIndex = 0;
 		let endReached = false;
-	let knownTotal = totalPages;
+		let knownTotal = totalPages;
 
-const updatePageTotal = (candidate) => {
-	if (!Number.isFinite(candidate) || candidate < 0) {
-		return;
-	}
+		const updatePageTotal = (candidate) => {
+			if (!Number.isFinite(candidate) || candidate < 0) {
+				return;
+			}
 
-	const normalized = Math.floor(candidate);
-	if (knownTotal === null || normalized < knownTotal) {
-		knownTotal = normalized;
-		emit({ type: "page-total", total: knownTotal });
-	}
-};
+			const normalized = Math.floor(candidate);
+			if (knownTotal === null || normalized < knownTotal) {
+				knownTotal = normalized;
+				emit({ type: "page-total", total: knownTotal });
+			}
+		};
 
-const getPageResults = async (pageIndex) => {
-	if (prefetchedPages.has(pageIndex)) {
-		const results = prefetchedPages.get(pageIndex);
-		prefetchedPages.delete(pageIndex);
-		return results;
-	}
+		const getPageResults = async (pageIndex) => {
+			if (prefetchedPages.has(pageIndex)) {
+				const results = prefetchedPages.get(pageIndex);
+				prefetchedPages.delete(pageIndex);
+				return results;
+			}
 
-	return fetchPage(pageIndex);
-};
+			return fetchPage(pageIndex);
+		};
 
 		const schedulePageFetch = () => {
 			if (signal.aborted) {
@@ -334,7 +335,7 @@ const getPageResults = async (pageIndex) => {
 						},
 					});
 
-				const pageResults = await getPageResults(pageIndex);
+					const pageResults = await getPageResults(pageIndex);
 
 					if (signal.aborted) {
 						return;
@@ -350,12 +351,12 @@ const getPageResults = async (pageIndex) => {
 						return;
 					}
 
-			const prepared = buildDownloadTargets(
-				normalizedResults,
-				category,
-				outputDir,
-			);
-			const newDownloads = [];
+					const prepared = buildDownloadTargets(
+						normalizedResults,
+						category,
+						outputDir,
+					);
+					const newDownloads = [];
 
 					for (const emoji of prepared) {
 						const key = normalizeKey(emoji.category, emoji.name);
@@ -367,42 +368,42 @@ const getPageResults = async (pageIndex) => {
 						newDownloads.push(emoji);
 					}
 
-			if (newDownloads.length > 0) {
-				emit({
-					type: "downloads-scheduled",
-					count: newDownloads.length,
-				});
-			}
+					if (newDownloads.length > 0) {
+						emit({
+							type: "downloads-scheduled",
+							count: newDownloads.length,
+						});
+					}
 
-			newDownloads.forEach((emoji) => {
-				if (!signal.aborted) {
-					scheduleDownload(emoji);
-				}
-			});
+					newDownloads.forEach((emoji) => {
+						if (!signal.aborted) {
+							scheduleDownload(emoji);
+						}
+					});
 
-			scheduledDownloadTotal += newDownloads.length;
-			const expectedForPage =
-				knownTotal !== null && pageIndex === knownTotal - 1
-					? normalizedLastPageResults.length
-					: PAGE_SIZE;
-			const prevExpected = dynamicExpected;
-			dynamicExpected = Math.max(
-				dynamicExpected + (newDownloads.length - expectedForPage),
-				scheduledDownloadTotal,
-			);
-			if (dynamicExpected !== prevExpected) {
-				emit({ type: "expected-total", count: dynamicExpected });
-			}
+					scheduledDownloadTotal += newDownloads.length;
+					const expectedForPage =
+						knownTotal !== null && pageIndex === knownTotal - 1
+							? normalizedLastPageResults.length
+							: PAGE_SIZE;
+					const prevExpected = dynamicExpected;
+					dynamicExpected = Math.max(
+						dynamicExpected + (newDownloads.length - expectedForPage),
+						scheduledDownloadTotal,
+					);
+					if (dynamicExpected !== prevExpected) {
+						emit({ type: "expected-total", count: dynamicExpected });
+					}
 
-			fetchedPages += 1;
+					fetchedPages += 1;
 
-			emit({
-				type: "page-progress",
-				progress: {
-					fetched: fetchedPages,
-					current: pageIndex + 1,
-				},
-			});
+					emit({
+						type: "page-progress",
+						progress: {
+							fetched: fetchedPages,
+							current: pageIndex + 1,
+						},
+					});
 
 					if (!signal.aborted) {
 						schedulePageFetch();
@@ -446,14 +447,15 @@ const getPageResults = async (pageIndex) => {
 	};
 
 	return {
-		start: () => run().catch((error) => {
-			if (signal.aborted) {
-				return;
-			}
+		start: () =>
+			run().catch((error) => {
+				if (signal.aborted) {
+					return;
+				}
 
-			emit({ type: "error", error });
-			throw error;
-		}),
+				emit({ type: "error", error });
+				throw error;
+			}),
 		stop: () => abortController.abort(),
 	};
 };

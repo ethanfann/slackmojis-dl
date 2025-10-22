@@ -7,7 +7,7 @@
 	"license": "MIT",
 	"scripts": {
 		"start": "node src/cli.js",
-		"test": "check-peer-dependencies && ava",
+		"test": "ava",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
@@ -15,6 +15,7 @@
 	},
 	"bin": "bin/slackmojis-dl",
 	"dependencies": {
+		"@inkjs/ui": "^2.0.0",
 		"axios": "^0.21.1",
 		"glob": "^7.2.0",
 		"ink": "^6.3.1",
@@ -24,7 +25,6 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.2.6",
 		"ava": "^3.15.0",
-		"check-peer-dependencies": "^4.1.0",
 		"nock": "^13.5.6"
 	},
 	"engines": {

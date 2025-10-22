@@ -114,12 +114,33 @@ const formatEta = (value) => {
 	return `${seconds}s`;
 };
 
-const ProgressBar = ({ progress, width = 40, ink }) => {
+const renderProgressBar = ({ ratio = 0, width = 40, ink, inkUi, theme }) => {
 	const { Box, Text } = ink;
-	const safeProgress = Math.min(Math.max(progress ?? 0, 0), 1);
-	const barWidth = Math.max(Math.floor(width), 1);
-	const filled = Math.round(safeProgress * barWidth);
-	const empty = Math.max(barWidth - filled, 0);
+	const normalizedWidth = Math.max(Math.floor(width), 1);
+	const safeRatio = Math.min(Math.max(ratio ?? 0, 0), 1);
+
+	if (inkUi?.ProgressBar) {
+		const percentValue = Math.min(Math.max(safeRatio * 100, 0), 100);
+		let progressElement = h(inkUi.ProgressBar, { value: percentValue });
+
+		if (inkUi.ThemeProvider) {
+			const appliedTheme = theme ?? inkUi.defaultTheme;
+			progressElement = h(
+				inkUi.ThemeProvider,
+				{ theme: appliedTheme },
+				progressElement,
+			);
+		}
+
+		return h(
+			Box,
+			{ width: normalizedWidth, minWidth: normalizedWidth },
+			progressElement,
+		);
+	}
+
+	const filled = Math.round(safeRatio * normalizedWidth);
+	const empty = Math.max(normalizedWidth - filled, 0);
 	const bar = `${"=".repeat(filled)}${" ".repeat(empty)}`;
 
 	return h(
@@ -137,6 +158,8 @@ const App = ({
 	downloadConcurrency = null,
 	stdout = process.stdout,
 	ink = null,
+	inkUi = null,
+	inkUiTheme = null,
 }) => {
 	if (!ink) {
 		throw new Error("Ink components are required");
@@ -157,17 +180,17 @@ const App = ({
 		? resolvedColumns
 		: undefined;
 	const {
-	status,
-	lastPage,
-	pageTotal,
-	pageStatus,
-	totalEmojis,
-	expectedTotal,
-	downloads,
-	errors,
-	elapsedSeconds,
-	completed,
-	existingCount,
+		status,
+		lastPage,
+		pageTotal,
+		pageStatus,
+		totalEmojis,
+		expectedTotal,
+		downloads,
+		errors,
+		elapsedSeconds,
+		completed,
+		existingCount,
 	} = useEmojiDownloader({
 		dest,
 		limit,
@@ -179,7 +202,8 @@ const App = ({
 	const processedEmojis = downloads.length + errors.length;
 	const formattedElapsed =
 		elapsedSeconds > 0 ? elapsedSeconds.toFixed(1) : "0.0";
-	const rawDownloadsPerSecond = elapsedSeconds > 0 ? downloads.length / elapsedSeconds : 0;
+	const rawDownloadsPerSecond =
+		elapsedSeconds > 0 ? downloads.length / elapsedSeconds : 0;
 	const emojisPerSecond =
 		elapsedSeconds > 0
 			? Math.round((processedEmojis / elapsedSeconds) * 10) / 10
@@ -188,10 +212,10 @@ const App = ({
 	const totalKnown =
 		Number.isFinite(pageTotal) && pageTotal >= 0 ? Math.floor(pageTotal) : null;
 
-const pageLabelForStatus = (() => {
-	if (totalKnown !== null && pageStatus.fetched >= totalKnown) {
-		return "Pages queued ✓";
-	}
+	const pageLabelForStatus = (() => {
+		if (totalKnown !== null && pageStatus.fetched >= totalKnown) {
+			return "All pages queued";
+		}
 
 		if (totalKnown !== null || pageStatus.fetched > 0) {
 			return `Pages queued ${formatCount(pageStatus.fetched)}/${formatCount(totalKnown)}`;
@@ -291,7 +315,9 @@ const pageLabelForStatus = (() => {
 			? Math.max(downloadsTarget - downloads.length, 0)
 			: null;
 	const etaSeconds =
-		remainingDownloads !== null && remainingDownloads > 0 && rawDownloadsPerSecond > 0
+		remainingDownloads !== null &&
+		remainingDownloads > 0 &&
+		rawDownloadsPerSecond > 0
 			? remainingDownloads / rawDownloadsPerSecond
 			: null;
 	const etaValue = etaSeconds !== null ? formatEta(etaSeconds) : null;
@@ -327,10 +353,12 @@ const pageLabelForStatus = (() => {
 		}
 
 		const segments = [
-			h(ProgressBar, {
-				progress: progressRatio,
+			renderProgressBar({
+				ratio: progressRatio,
 				width: progressBarWidth,
 				ink,
+				inkUi,
+				theme: inkUiTheme,
 			}),
 		];
 
@@ -356,7 +384,7 @@ const pageLabelForStatus = (() => {
 
 		return h(
 			Box,
-			{ marginTop: 0, flexDirection: "row", alignItems: "center" },
+			{ marginTop: 1, flexDirection: "row", alignItems: "center" },
 			segments,
 		);
 	})();
@@ -371,8 +399,8 @@ const pageLabelForStatus = (() => {
 			ink,
 		}),
 		h(Box, { marginTop: 1 }, h(Text, { dimColor: true }, statusLine)),
-	progressBarLine,
-	completed ? h(Text, null, "") : null,
+		progressBarLine,
+		completed ? h(Text, null, "") : null,
 	);
 };
 

@@ -38,8 +38,25 @@ const cli = meow(
 );
 
 const run = async () => {
-	const inkModule = await import("ink");
+	const [inkModule, inkUiModule] = await Promise.all([
+		import("ink"),
+		import("@inkjs/ui"),
+	]);
 	const { render } = inkModule;
+	const inkUiTheme =
+		typeof inkUiModule.extendTheme === "function" && inkUiModule.defaultTheme
+			? inkUiModule.extendTheme(inkUiModule.defaultTheme, {
+					components: {
+						ProgressBar: {
+							styles: {
+								completed: () => ({
+									color: "green",
+								}),
+							},
+						},
+					},
+				})
+			: null;
 
 	if (cli.flags.dump) {
 		try {
@@ -76,6 +93,8 @@ const run = async () => {
 				downloadConcurrency,
 				stdout: process.stdout,
 				ink: inkModule,
+				inkUi: inkUiModule,
+				inkUiTheme,
 			}),
 		);
 
