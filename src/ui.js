@@ -377,7 +377,7 @@ const App = ({
 				h(
 					Box,
 					{ marginLeft: 1 },
-					h(Text, { dimColor: true }, `ETA ${etaValue}`),
+					h(Text, { dimColor: true }, `${etaValue} remaining`),
 				),
 			);
 		}
