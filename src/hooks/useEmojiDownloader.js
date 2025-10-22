@@ -7,7 +7,7 @@ const {
 
 const initialState = {
 	status: "idle",
-	lastPage: 0,
+	lastPage: null,
 	pageTotal: 0,
 	pageStatus: {
 		fetched: 0,

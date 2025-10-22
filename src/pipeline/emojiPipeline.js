@@ -54,8 +54,6 @@ const createEmojiPipeline = ({
 	};
 
 	const run = async () => {
-		emit({ type: "status", stage: "determine-last-page" });
-
 		const rootDir = dest === "emojis" ? process.cwd() : dest;
 		const outputDir = path.join(rootDir, "emojis");
 
@@ -65,12 +63,22 @@ const createEmojiPipeline = ({
 			return;
 		}
 
-		const lastPage = await findLastPage();
-		if (signal.aborted) {
-			return;
-		}
+		const limitProvided = limit !== undefined && limit !== null;
+		const parsedLimit = Number(limit);
+		const limitIsFinite = Number.isFinite(parsedLimit);
+		const shouldDetermineLastPage = !(limitProvided && limitIsFinite);
 
-		emit({ type: "meta", lastPage });
+		let lastPage;
+
+		if (shouldDetermineLastPage) {
+			emit({ type: "status", stage: "determine-last-page" });
+			lastPage = await findLastPage();
+			if (signal.aborted) {
+				return;
+			}
+
+			emit({ type: "meta", lastPage });
+		}
 
 		const pageTotal = resolvePageCount(limit, lastPage);
 		emit({ type: "page-total", total: pageTotal });

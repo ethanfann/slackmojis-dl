@@ -9,6 +9,9 @@ const {
 const { downloadImage } = require("./src/services/slackmojis/downloadImage");
 const { fetchPage } = require("./src/services/slackmojis/fetchPage");
 const { fetchAllEmojis } = require("./src/services/slackmojis/fetchAllEmojis");
+const {
+	resolvePageCount,
+} = require("./src/services/slackmojis/resolvePageCount");
 const { listEmojiEntries } = require("./src/services/filesystem/emojiInventory");
 
 /* 
@@ -136,15 +139,28 @@ test("obtains multiple pages of emojis", async (t) => {
 	stubEmojiPage(0);
 	stubEmojiPage(1);
 
-	const results = await fetchAllEmojis({ limit: 2, lastPage: 3 });
+	const results = await fetchAllEmojis({ limit: 2 });
 
 	t.is(results.length, sampleEmojiPages[0].length + sampleEmojiPages[1].length);
 });
 
 test("limit of zero skips fetching pages", async (t) => {
-	const results = await fetchAllEmojis({ limit: 0, lastPage: 5 });
+	const results = await fetchAllEmojis({ limit: 0 });
 
 	t.is(results.length, 0);
+});
+
+test("resolvePageCount returns limit when last page is unknown", (t) => {
+	t.is(resolvePageCount(3), 3);
+});
+
+test("resolvePageCount clamps to last page when known", (t) => {
+	t.is(resolvePageCount(10, 2), 3);
+});
+
+test("resolvePageCount throws when last page is required but invalid", (t) => {
+	const error = t.throws(() => resolvePageCount(undefined, -1));
+	t.truthy(error?.message.includes("lastPage"));
 });
 
 test("parse a url to obtain an emoji name", (t) => {

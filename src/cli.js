@@ -45,11 +45,19 @@ const run = async () => {
 
 	if (cli.flags.dump) {
 		try {
-			const lastPage = await findLastPage();
-			const results = await fetchAllEmojis({
-				limit: cli.flags.limit,
-				lastPage,
-			});
+			const limitProvided =
+				cli.flags.limit !== undefined && cli.flags.limit !== null;
+			const parsedLimit = Number(cli.flags.limit);
+			const limitIsFinite = Number.isFinite(parsedLimit);
+
+			const fetchOptions = { limit: cli.flags.limit };
+
+			if (!(limitProvided && limitIsFinite)) {
+				const lastPage = await findLastPage();
+				fetchOptions.lastPage = lastPage;
+			}
+
+			const results = await fetchAllEmojis(fetchOptions);
 			const data = JSON.stringify(results);
 			fs.writeFileSync("emojis.json", data);
 		} catch (error) {

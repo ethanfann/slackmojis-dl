@@ -88,7 +88,7 @@ const App = ({
 		return h(Text, { color: "red" }, fatalMessage);
 	}
 
-	if (status === "determining-last-page" || lastPage === 0) {
+	if (status === "determining-last-page") {
 		return h(
 			Text,
 			null,
@@ -98,7 +98,18 @@ const App = ({
 	}
 
 	if (totalEmojis === 0 && !completed) {
-		const pageCount = pageTotal > 0 ? pageTotal : lastPage + 1;
+		const parsedLimit = Number(limit);
+		const hasValidLimit =
+			limit !== null && limit !== undefined && Number.isFinite(parsedLimit);
+		const sanitizedLimit = hasValidLimit ? Math.max(Math.floor(parsedLimit), 0) : null;
+		const pageCount =
+			pageTotal > 0
+				? pageTotal
+				: sanitizedLimit !== null
+					? sanitizedLimit
+					: lastPage !== null && Number.isFinite(lastPage)
+						? lastPage + 1
+						: 0;
 		return h(
 			Text,
 			null,
