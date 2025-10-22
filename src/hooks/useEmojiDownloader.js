@@ -10,6 +10,7 @@ const initialState = {
 	lastPage: null,
 	pageTotal: null,
 	logSequence: 0,
+	existingCount: 0,
 	pageStatus: {
 		fetched: 0,
 		current: 0,
@@ -66,6 +67,17 @@ const applyEvent = (state, event) => {
 					Number.isFinite(event.total) && event.total >= 0
 						? Math.floor(event.total)
 						: null,
+			};
+		}
+		case "existing-entries": {
+			const count =
+				Number.isFinite(event.count) && event.count >= 0
+					? Math.floor(event.count)
+					: 0;
+
+			return {
+				...state,
+				existingCount: count,
 			};
 		}
 		case "page-progress": {

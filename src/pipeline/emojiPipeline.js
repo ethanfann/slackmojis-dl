@@ -81,10 +81,12 @@ const createEmojiPipeline = ({
 			return;
 		}
 
-		const existingEntries = listEmojiEntries(outputDir);
-		const existingSet = new Set(existingEntries);
-		const scheduledKeys = new Set(existingEntries);
-		const reservedKeys = new Set();
+	const existingEntries = listEmojiEntries(outputDir);
+	const existingSet = new Set(existingEntries);
+	const scheduledKeys = new Set(existingEntries);
+	const reservedKeys = new Set();
+
+	emit({ type: "existing-entries", count: existingEntries.length });
 
 		let startTime = null;
 

@@ -21,12 +21,7 @@ const Spinner = () => {
 	return spinnerFrames[index];
 };
 
-const BoundedLog = ({
-	entries,
-	height,
-	width,
-	ink,
-}) => {
+const BoundedLog = ({ entries, height, width, ink }) => {
 	const { Box, Text } = ink;
 	const total = entries.length;
 	const boundedHeight =
@@ -75,14 +70,37 @@ const BoundedLog = ({
 	);
 };
 
+const numberFormatter = new Intl.NumberFormat("en-US");
+
+const formatCount = (value, fallback = "?") => {
+	if (value === null || value === undefined) {
+		return fallback;
+	}
+
+	const numeric = Number(value);
+	if (!Number.isFinite(numeric)) {
+		return fallback;
+	}
+
+	return numberFormatter.format(numeric);
+};
+
+const formatRate = (value) => {
+	if (!Number.isFinite(value)) {
+		return "0.0";
+	}
+
+	return value.toFixed(1);
+};
+
 const App = ({
-    dest = "emojis",
-    limit = null,
-    category: categoryName = null,
-    pageConcurrency = null,
-    downloadConcurrency = null,
+	dest = "emojis",
+	limit = null,
+	category: categoryName = null,
+	pageConcurrency = null,
+	downloadConcurrency = null,
 	stdout = process.stdout,
-    ink = null,
+	ink = null,
 }) => {
 	if (!ink) {
 		throw new Error("Ink components are required");
@@ -91,8 +109,7 @@ const App = ({
 	const { Text, Box } = ink;
 	const { columns, rows } = useTerminalDimensions(stdout);
 
-	const resolvedColumns =
-		columns ?? stdout?.columns ?? process.stdout?.columns;
+	const resolvedColumns = columns ?? stdout?.columns ?? process.stdout?.columns;
 	const resolvedRows = rows ?? stdout?.rows ?? process.stdout?.rows;
 
 	const reservedRows = 2; // status line and padding
@@ -108,19 +125,19 @@ const App = ({
 		lastPage,
 		pageTotal,
 		pageStatus,
-		downloadStats,
 		totalEmojis,
 		downloads,
 		errors,
 		elapsedSeconds,
 		completed,
-    } = useEmojiDownloader({
-        dest,
-        limit,
-        category: categoryName,
-        pageConcurrency,
-        downloadConcurrency,
-    });
+		existingCount,
+	} = useEmojiDownloader({
+		dest,
+		limit,
+		category: categoryName,
+		pageConcurrency,
+		downloadConcurrency,
+	});
 
 	const processedEmojis = downloads.length + errors.length;
 	const formattedElapsed =
@@ -131,33 +148,19 @@ const App = ({
 			: 0;
 
 	const totalKnown =
-		Number.isFinite(pageTotal) && pageTotal >= 0
-			? Math.floor(pageTotal)
-			: null;
-	const totalLabel = totalKnown !== null ? totalKnown : "?";
-	const latestLabel =
-		totalKnown !== null && pageStatus.current > 0
-			? Math.min(pageStatus.current, totalKnown)
-			: pageStatus.current;
+		Number.isFinite(pageTotal) && pageTotal >= 0 ? Math.floor(pageTotal) : null;
 
-	let pageSummary = `Pages: ${pageStatus.fetched}/${totalLabel}`;
+	const pageLabelForStatus = (() => {
+		if (totalKnown !== null && pageStatus.fetched >= totalKnown) {
+			return "Pages queued ✓";
+		}
 
-	if (pageStatus.active > 0 || pageStatus.queued > 0) {
-		const queuedLabel =
-			pageStatus.queued > 0 ? `, ${pageStatus.queued} queued` : "";
-		const latestSuffix =
-			pageStatus.current > 0
-				? `, latest ${latestLabel}/${totalLabel}`
-				: "";
-		pageSummary += ` (+${pageStatus.active} fetching${queuedLabel}${latestSuffix})`;
-	} else if (pageStatus.current > 0) {
-		pageSummary += ` (latest ${latestLabel}/${totalLabel})`;
-	}
+		if (totalKnown !== null || pageStatus.fetched > 0) {
+			return `Pages queued ${formatCount(pageStatus.fetched)}/${formatCount(totalKnown)}`;
+		}
 
-	const downloadSummary =
-		downloadStats.active > 0 || downloadStats.pending > 0
-			? `Downloads: ${downloadStats.active} active, ${downloadStats.pending} queued`
-			: "Downloads: idle";
+		return null;
+	})();
 
 	const logEntries = React.useMemo(() => {
 		const successEntries = downloads.map((entry) => ({
@@ -169,13 +172,11 @@ const App = ({
 			type: entry.type ?? "error",
 		}));
 
-		return successEntries
-			.concat(errorEntries)
-			.sort((left, right) => {
-				const leftSeq = left.sequence ?? 0;
-				const rightSeq = right.sequence ?? 0;
-				return leftSeq - rightSeq;
-			});
+		return successEntries.concat(errorEntries).sort((left, right) => {
+			const leftSeq = left.sequence ?? 0;
+			const rightSeq = right.sequence ?? 0;
+			return leftSeq - rightSeq;
+		});
 	}, [downloads, errors]);
 
 	if (status === "error") {
@@ -197,7 +198,9 @@ const App = ({
 		const parsedLimit = Number(limit);
 		const hasValidLimit =
 			limit !== null && limit !== undefined && Number.isFinite(parsedLimit);
-		const sanitizedLimit = hasValidLimit ? Math.max(Math.floor(parsedLimit), 0) : null;
+		const sanitizedLimit = hasValidLimit
+			? Math.max(Math.floor(parsedLimit), 0)
+			: null;
 		const pageCount =
 			totalKnown !== null
 				? totalKnown
@@ -206,6 +209,15 @@ const App = ({
 					: lastPage !== null && Number.isFinite(lastPage)
 						? lastPage + 1
 						: "?";
+		if (existingCount > 0) {
+			return h(
+				Text,
+				null,
+				h(Text, { color: "green" }, h(Spinner, { type: "dots" })),
+				` Determining where to resume (${formatCount(existingCount)} existing)`,
+			);
+		}
+
 		const requestLabel =
 			pageCount === "?"
 				? " Requesting Emoji Listing"
@@ -222,6 +234,30 @@ const App = ({
 		return h(Text, { color: "green" }, "✔ Up to Date");
 	}
 
+	const totalEmojiLabel =
+		totalEmojis > 0 || (completed && totalEmojis >= 0)
+			? existingCount + totalEmojis
+			: null;
+
+	const progressCount = existingCount + downloads.length;
+
+	const errorLabel =
+		errors.length > 0 ? `Errors ${formatCount(errors.length)}` : null;
+
+	const statusSegments = [
+		`Progress ${formatCount(progressCount)}/${formatCount(totalEmojiLabel)}`,
+		`Elapsed ${formattedElapsed}s`,
+		`${formatRate(emojisPerSecond)} emoji/s`,
+	];
+
+	[pageLabelForStatus, errorLabel].forEach((segment) => {
+		if (segment) {
+			statusSegments.push(segment);
+		}
+	});
+
+	const statusLine = statusSegments.join(" | ");
+
 	return h(
 		Box,
 		{ flexDirection: "column", width: "100%", height: "100%", flexGrow: 1 },
@@ -231,15 +267,7 @@ const App = ({
 			width: viewportWidth,
 			ink,
 		}),
-		h(
-			Box,
-			{ marginTop: 1 },
-			h(
-				Text,
-				{ dimColor: true },
-				`Progress: ${processedEmojis} / ${totalEmojis} | Successes: ${downloads.length} | Errors: ${errors.length} | ${pageSummary} | ${downloadSummary} | Elapsed: ${formattedElapsed}s | ${emojisPerSecond} emoji/s`,
-			),
-		),
+		h(Box, { marginTop: 1 }, h(Text, { dimColor: true }, statusLine)),
 	);
 };
 
