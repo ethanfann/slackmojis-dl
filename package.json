@@ -10,7 +10,8 @@
 		"test": "check-peer-dependencies && ava",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"format": "biome format --write ."
+		"format": "biome format --write .",
+		"update:last-page": "node scripts/update-last-page.js"
 	},
 	"bin": "bin/slackmojis-dl",
 	"dependencies": {

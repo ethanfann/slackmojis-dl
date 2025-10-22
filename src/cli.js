@@ -2,7 +2,7 @@
 const React = require("react");
 const meow = require("meow");
 const fs = require("node:fs");
-const { fetchAllEmojis } = require("./services/slackmojis");
+const { fetchAllEmojis, resolveLastPageHint } = require("./services/slackmojis");
 const { enterFullscreen } = require("./lib/terminal/fullscreen");
 
 const ui = require("./ui");
@@ -43,8 +43,10 @@ const run = async () => {
 
 	if (cli.flags.dump) {
 		try {
+			const lastPageHint = await resolveLastPageHint();
 			const results = await fetchAllEmojis({
 				limit: cli.flags.limit,
+				lastPageHint,
 			});
 			const data = JSON.stringify(results);
 			fs.writeFileSync("emojis.json", data);

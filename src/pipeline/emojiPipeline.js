@@ -4,10 +4,10 @@ const { performance } = require("node:perf_hooks");
 const { createTaskQueue } = require("../lib/taskQueue");
 const { buildDownloadTargets } = require("../emoji/buildDownloadTargets");
 const { listEmojiEntries } = require("../services/filesystem/emojiInventory");
-const { fetchPage, downloadImage } = require("../services/slackmojis");
+const { fetchPage, downloadImage, resolveLastPageHint } = require("../services/slackmojis");
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
-const DEFAULT_PAGE_CONCURRENCY = 8;
+const DEFAULT_PAGE_CONCURRENCY = 12;
 
 const normalizeKey = (category, name) => path.join(category, name);
 
@@ -58,26 +58,41 @@ const createEmojiPipeline = ({
 			return;
 		}
 
-		const limitProvided = limit !== undefined && limit !== null;
-		let maxPages = null;
+	const limitProvided = limit !== undefined && limit !== null;
+	let maxPages = null;
+	let lastPageHint = null;
 
-		if (limitProvided) {
-			const parsedLimit = Number(limit);
-			if (Number.isFinite(parsedLimit)) {
-				if (parsedLimit <= 0) {
-					emit({ type: "page-total", total: 0 });
-					emit({ type: "status", stage: "complete" });
-					return;
-				}
-
-				maxPages = Math.floor(parsedLimit);
+	if (limitProvided) {
+		const parsedLimit = Number(limit);
+		if (Number.isFinite(parsedLimit)) {
+			if (parsedLimit <= 0) {
+				emit({ type: "page-total", total: 0 });
+				emit({ type: "status", stage: "complete" });
+				return;
 			}
+
+			maxPages = Math.floor(parsedLimit);
 		}
+	}
 
-		emit({ type: "page-total", total: maxPages });
+	if (maxPages === null) {
+		try {
+			lastPageHint = await resolveLastPageHint();
+		} catch {
+			lastPageHint = null;
+		}
+	}
 
-		if (maxPages === 0) {
-			emit({ type: "status", stage: "complete" });
+	const initialTotal =
+		maxPages !== null
+			? maxPages
+			: Number.isFinite(lastPageHint) && lastPageHint >= 0
+				? Math.floor(lastPageHint) + 1
+				: null;
+	emit({ type: "page-total", total: initialTotal });
+
+	if (maxPages === 0) {
+		emit({ type: "status", stage: "complete" });
 			return;
 		}
 

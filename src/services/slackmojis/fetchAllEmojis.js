@@ -19,8 +19,18 @@ const sanitizeLimit = (limit) => {
 	return Math.floor(parsed);
 };
 
-const fetchAllEmojis = async ({ limit, concurrency = DEFAULT_PAGE_CONCURRENCY }) => {
+const fetchAllEmojis = async ({
+	limit,
+	lastPageHint,
+	concurrency = DEFAULT_PAGE_CONCURRENCY,
+}) => {
 	const maxPages = sanitizeLimit(limit);
+	const effectiveLimit =
+		maxPages !== null
+			? maxPages
+			: Number.isFinite(lastPageHint) && lastPageHint >= 0
+				? Math.floor(lastPageHint) + 1
+				: null;
 	if (maxPages === 0) {
 		return [];
 	}
@@ -35,7 +45,12 @@ const fetchAllEmojis = async ({ limit, concurrency = DEFAULT_PAGE_CONCURRENCY })
 	let discoveredEnd = null;
 
 	const workers = Array.from(
-		{ length: maxPages !== null ? Math.min(safeConcurrency, maxPages) : safeConcurrency },
+		{
+			length:
+				effectiveLimit !== null
+					? Math.min(safeConcurrency, effectiveLimit)
+					: safeConcurrency,
+		},
 		async () => {
 			while (true) {
 				if (discoveredEnd !== null && cursor >= discoveredEnd) {
@@ -46,10 +61,13 @@ const fetchAllEmojis = async ({ limit, concurrency = DEFAULT_PAGE_CONCURRENCY })
 					break;
 				}
 
+				if (effectiveLimit !== null && cursor >= effectiveLimit) {
+					break;
+				}
+
 				const pageIndex = cursor;
 				cursor += 1;
 
-				// eslint-disable-next-line no-await-in-loop
 				const pageResults = await fetchPage(pageIndex);
 				const normalized = Array.isArray(pageResults) ? pageResults : [];
 
@@ -72,7 +90,9 @@ const fetchAllEmojis = async ({ limit, concurrency = DEFAULT_PAGE_CONCURRENCY })
 			? discoveredEnd
 			: maxPages !== null
 				? maxPages
-				: pages.length;
+				: effectiveLimit !== null
+					? effectiveLimit
+					: pages.length;
 
 	return pages.slice(0, effectiveEnd).filter(Boolean).flat();
 };

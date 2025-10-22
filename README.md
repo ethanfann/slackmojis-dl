@@ -2,7 +2,8 @@
 
 Downloads emojis from https://slackmojis.com/
 
-![Test workflow](https://github.com/ethanfann/slackmojis-dl/actions/workflows/test.yml/badge.svg)
+![Test](https://github.com/ethanfann/slackmojis-dl/actions/workflows/test.yml/badge.svg)
+![Nightly Last Page Update](https://github.com/ethanfann/slackmojis-dl/actions/workflows/update-last-page.yml/badge.svg)
 
 ![](media/demo.jpg)
 

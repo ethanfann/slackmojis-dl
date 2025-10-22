@@ -93,6 +93,42 @@ const formatRate = (value) => {
 	return value.toFixed(1);
 };
 
+const formatEta = (value) => {
+	if (!Number.isFinite(value) || value <= 0) {
+		return null;
+	}
+
+	const totalSeconds = Math.ceil(value);
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+
+	if (hours > 0) {
+		return `${hours}h ${minutes}m`;
+	}
+
+	if (minutes > 0) {
+		return `${minutes}m ${seconds}s`;
+	}
+
+	return `${seconds}s`;
+};
+
+const ProgressBar = ({ progress, width = 40, ink }) => {
+	const { Box, Text } = ink;
+	const safeProgress = Math.min(Math.max(progress ?? 0, 0), 1);
+	const barWidth = Math.max(Math.floor(width), 1);
+	const filled = Math.round(safeProgress * barWidth);
+	const empty = Math.max(barWidth - filled, 0);
+	const bar = `${"=".repeat(filled)}${" ".repeat(empty)}`;
+
+	return h(
+		Box,
+		{ flexDirection: "row" },
+		h(Text, { dimColor: true }, `[${bar}]`),
+	);
+};
+
 const App = ({
 	dest = "emojis",
 	limit = null,
@@ -142,6 +178,8 @@ const App = ({
 	const processedEmojis = downloads.length + errors.length;
 	const formattedElapsed =
 		elapsedSeconds > 0 ? elapsedSeconds.toFixed(1) : "0.0";
+	const rawDownloadsPerSecond = elapsedSeconds > 0 ? downloads.length / elapsedSeconds : 0;
+	const scheduleRate = elapsedSeconds > 0 ? totalEmojis / elapsedSeconds : 0;
 	const emojisPerSecond =
 		elapsedSeconds > 0
 			? Math.round((processedEmojis / elapsedSeconds) * 10) / 10
@@ -240,6 +278,20 @@ const App = ({
 			: null;
 
 	const progressCount = existingCount + downloads.length;
+	const progressTarget =
+		totalEmojis > 0 ? existingCount + totalEmojis : null;
+	const progressRatio =
+		progressTarget && progressTarget > 0
+			? Math.min(Math.max(progressCount / progressTarget, 0), 1)
+			: null;
+
+	const remainingDownloads =
+		totalEmojis > 0 ? Math.max(totalEmojis - downloads.length, 0) : null;
+	const etaSeconds =
+		remainingDownloads !== null && remainingDownloads > 0 && rawDownloadsPerSecond > 0
+			? remainingDownloads / rawDownloadsPerSecond
+			: null;
+	const etaLabel = etaSeconds !== null ? `ETA ${formatEta(etaSeconds)}` : null;
 
 	const errorLabel =
 		errors.length > 0 ? `Errors ${formatCount(errors.length)}` : null;
@@ -258,6 +310,40 @@ const App = ({
 
 	const statusLine = statusSegments.join(" | ");
 
+	const progressBarWidth = viewportWidth
+		? Math.max(Math.min(Math.floor(viewportWidth * 0.6), 60), 10)
+		: 40;
+	const progressPercentLabel =
+		progressRatio !== null ? `${Math.round(progressRatio * 100)}%` : null;
+
+	const allPagesQueued =
+		totalKnown !== null && pageStatus.fetched >= totalKnown;
+	const showProgressBar =
+		progressRatio !== null && etaLabel !== null && allPagesQueued;
+
+	const progressBarLine =
+		showProgressBar
+			? h(
+				Box,
+				{ marginTop: 0, flexDirection: "row", alignItems: "center" },
+				[
+					h(ProgressBar, {
+						progress: progressRatio,
+						width: progressBarWidth,
+						ink,
+					}),
+					progressPercentLabel
+						? h(
+							Box,
+							{ marginLeft: 1 },
+							h(Text, { dimColor: true }, `${progressPercentLabel} `),
+						)
+						: null,
+					etaLabel ? h(Text, { dimColor: true }, etaLabel) : null,
+				].filter(Boolean),
+			)
+			: null;
+
 	return h(
 		Box,
 		{ flexDirection: "column", width: "100%", height: "100%", flexGrow: 1 },
@@ -268,6 +354,8 @@ const App = ({
 			ink,
 		}),
 		h(Box, { marginTop: 1 }, h(Text, { dimColor: true }, statusLine)),
+		progressBarLine,
+		completed ? h(Text, null, " ") : null,
 	);
 };
 
