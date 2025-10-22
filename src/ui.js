@@ -152,7 +152,7 @@ const App = ({
 
 	const pageLabelForStatus = (() => {
 		if (totalKnown !== null && pageStatus.fetched >= totalKnown) {
-			return "Pages queued ✓";
+			return "All pages queued";
 		}
 
 		if (totalKnown !== null || pageStatus.fetched > 0) {
