@@ -1,6 +1,6 @@
-import axios from "axios";
 import https from "node:https";
 import { createRequire } from "node:module";
+import axios from "axios";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../../package.json");

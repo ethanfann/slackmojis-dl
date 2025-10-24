@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-import React from "react";
-import meow from "meow";
 import fs from "node:fs";
-import ui from "./ui.js";
+import { render } from "ink";
+import meow from "meow";
+import React from "react";
+import App from "./app.js";
 import {
 	fetchAllEmojis,
 	resolveLastPageHint,
@@ -41,26 +42,6 @@ const cli = meowCli(
 );
 
 const run = async () => {
-	const [inkModule, inkUiModule] = await Promise.all([
-		import("ink"),
-		import("@inkjs/ui"),
-	]);
-	const { render } = inkModule;
-	const inkUiTheme =
-		typeof inkUiModule.extendTheme === "function" && inkUiModule.defaultTheme
-			? inkUiModule.extendTheme(inkUiModule.defaultTheme, {
-					components: {
-						ProgressBar: {
-							styles: {
-								completed: () => ({
-									color: "green",
-								}),
-							},
-						},
-					},
-				})
-			: null;
-
 	if (cli.flags.dump) {
 		try {
 			const lastPageHint = await resolveLastPageHint();
@@ -85,39 +66,27 @@ const run = async () => {
 	const downloadConcurrency =
 		numberFlag(cli.flags.downloadConcurrency) ?? undefined;
 
-	let exitSummary = null;
-	const captureSummary = (summary) => {
-		if (typeof summary === "string" && summary.trim().length > 0) {
-			exitSummary = summary.trim();
-		}
-	};
+	let app;
 
 	try {
-		const app = render(
-			React.createElement(ui, {
+		app = render(
+			React.createElement(App, {
 				...cli.flags,
 				pageConcurrency,
 				downloadConcurrency,
-				ink: inkModule,
-				inkUi: inkUiModule,
-				inkUiTheme,
-				onSummary: captureSummary,
 			}),
 		);
 
 		if (typeof app?.waitUntilExit === "function") {
 			await app.waitUntilExit();
 		}
-
+	} finally {
 		if (typeof app?.cleanup === "function") {
 			app.cleanup();
 		}
-	} finally {
+
 		if (process.stdout.isTTY) {
 			console.log();
-		}
-		if (exitSummary) {
-			console.log(exitSummary);
 		}
 	}
 };

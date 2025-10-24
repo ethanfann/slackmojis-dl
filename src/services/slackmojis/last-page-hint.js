@@ -1,7 +1,7 @@
 import https from "node:https";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
 
 const HINT_URL =
 	"https://raw.githubusercontent.com/ethanfann/slackmojis-dl/main/data/lastPage.json";
@@ -49,13 +49,15 @@ const fetchJson = (url) =>
 	});
 
 const resolveLastPageHint = async () => {
-	let best = Number.isFinite(localSnapshot) && localSnapshot >= 0 ? localSnapshot : null;
+	let best =
+		Number.isFinite(localSnapshot) && localSnapshot >= 0 ? localSnapshot : null;
 
 	try {
 		const payload = await fetchJson(HINT_URL);
 		const value = payload?.lastPage;
 		if (Number.isFinite(value) && value >= 0) {
-			best = best === null ? Math.floor(value) : Math.max(best, Math.floor(value));
+			best =
+				best === null ? Math.floor(value) : Math.max(best, Math.floor(value));
 		}
 	} catch {
 		// ignore network/parse failures

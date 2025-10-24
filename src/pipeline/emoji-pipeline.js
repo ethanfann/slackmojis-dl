@@ -1,15 +1,15 @@
-import path from "node:path";
 import * as fsPromises from "node:fs/promises";
+import path from "node:path";
 import { performance } from "node:perf_hooks";
-import { createTaskQueue } from "../lib/task-queue.js";
 import { buildDownloadTargets } from "../emoji/build-download-targets.js";
+import { createTaskQueue } from "../lib/task-queue.js";
 import { listEmojiEntries } from "../services/filesystem/emoji-inventory.js";
 import {
-	fetchPage,
 	downloadImage,
-	resolveLastPageHint,
+	fetchPage,
 	findLastPage,
 	MIN_LAST_PAGE_INDEX,
+	resolveLastPageHint,
 } from "../services/slackmojis/index.js";
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;

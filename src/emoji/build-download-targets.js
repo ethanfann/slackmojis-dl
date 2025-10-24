@@ -35,8 +35,11 @@ const buildDownloadTargets = (emojis, categoryFilter, outputDir) => {
 				category,
 			};
 		})
-		.filter((emoji) =>
-			typeof emoji.name === "string" && emoji.name.trim() !== "" && emoji.name !== ".",
+		.filter(
+			(emoji) =>
+				typeof emoji.name === "string" &&
+				emoji.name.trim() !== "" &&
+				emoji.name !== ".",
 		);
 };
 

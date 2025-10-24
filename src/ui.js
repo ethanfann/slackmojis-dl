@@ -1,3 +1,9 @@
+import {
+	defaultTheme as inkUiDefaultTheme,
+	ProgressBar,
+	ThemeProvider,
+} from "@inkjs/ui";
+import { Box, Static, Text } from "ink";
 import React from "react";
 import { useEmojiDownloader } from "./hooks/use-emoji-downloader.js";
 
@@ -64,26 +70,19 @@ const formatEta = (value) => {
 	return `${seconds}s`;
 };
 
-const renderProgressBar = ({
-	ratio = 0,
-	width = 40,
-	ink,
-	inkUi,
-	theme,
-	key,
-}) => {
-	const { Box, Text } = ink;
+const renderProgressBar = ({ ratio = 0, width = 40, theme, key }) => {
 	const normalizedWidth = Math.max(Math.floor(width), 1);
 	const safeRatio = Math.min(Math.max(ratio ?? 0, 0), 1);
 
-	if (inkUi?.ProgressBar) {
+	if (typeof ProgressBar === "function") {
 		const percentValue = Math.min(Math.max(safeRatio * 100, 0), 100);
-		let progressElement = h(inkUi.ProgressBar, { value: percentValue });
+		let progressElement = h(ProgressBar, { value: percentValue });
 
-		if (inkUi.ThemeProvider) {
-			const appliedTheme = theme ?? inkUi.defaultTheme;
+		const appliedTheme = theme ?? inkUiDefaultTheme ?? null;
+
+		if (ThemeProvider && appliedTheme) {
 			progressElement = h(
-				inkUi.ThemeProvider,
+				ThemeProvider,
 				{ theme: appliedTheme },
 				progressElement,
 			);
@@ -113,17 +112,9 @@ const App = ({
 	category: categoryName = null,
 	pageConcurrency = null,
 	downloadConcurrency = null,
-	ink = null,
-	inkUi = null,
-	inkUiTheme = null,
+	progressBarTheme = null,
 	onSummary = null,
 }) => {
-	if (!ink) {
-		throw new Error("Ink components are required");
-	}
-
-	const { Text, Box, Static } = ink;
-
 	const {
 		status,
 		lastPage,
@@ -361,9 +352,7 @@ const App = ({
 			renderProgressBar({
 				ratio: progressRatio,
 				width: progressBarWidth,
-				ink,
-				inkUi,
-				theme: inkUiTheme,
+				theme: progressBarTheme,
 				key: "progress-bar",
 			}),
 		];

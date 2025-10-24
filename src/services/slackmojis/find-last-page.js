@@ -31,7 +31,8 @@ const findLastPage = async ({ floor = 0 } = {}) => {
 
 		await ensureFirstPageExists();
 
-		const normalizedFloor = Number.isFinite(floor) && floor >= 0 ? Math.floor(floor) : 0;
+		const normalizedFloor =
+			Number.isFinite(floor) && floor >= 0 ? Math.floor(floor) : 0;
 		if (normalizedFloor > 0) {
 			let candidate = normalizedFloor;
 			while (candidate > 0) {

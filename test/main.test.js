@@ -1,16 +1,16 @@
-import test from "ava";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import test from "ava";
 import nock from "nock";
 import {
-	extractEmojiName,
 	buildDownloadTargets,
+	extractEmojiName,
 } from "../src/emoji/build-download-targets.js";
-import { downloadImage } from "../src/services/slackmojis/download-image.js";
-import { fetchPage } from "../src/services/slackmojis/fetch-page.js";
-import { fetchAllEmojis } from "../src/services/slackmojis/fetch-all-emojis.js";
 import { listEmojiEntries } from "../src/services/filesystem/emoji-inventory.js";
+import { downloadImage } from "../src/services/slackmojis/download-image.js";
+import { fetchAllEmojis } from "../src/services/slackmojis/fetch-all-emojis.js";
+import { fetchPage } from "../src/services/slackmojis/fetch-page.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..");

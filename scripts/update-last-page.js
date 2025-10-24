@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import path from "node:path";
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findLastPage } from "../src/services/slackmojis/find-last-page.js";
 import { MIN_LAST_PAGE_INDEX } from "../src/services/slackmojis/last-page-hint.js";

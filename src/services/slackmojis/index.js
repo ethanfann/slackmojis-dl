@@ -1,5 +1,5 @@
-export { fetchPage } from "./fetch-page.js";
-export { fetchAllEmojis } from "./fetch-all-emojis.js";
 export { downloadImage } from "./download-image.js";
+export { fetchAllEmojis } from "./fetch-all-emojis.js";
+export { fetchPage } from "./fetch-page.js";
 export { findLastPage } from "./find-last-page.js";
-export { resolveLastPageHint, MIN_LAST_PAGE_INDEX } from "./last-page-hint.js";
+export { MIN_LAST_PAGE_INDEX, resolveLastPageHint } from "./last-page-hint.js";

@@ -214,10 +214,8 @@ const useEmojiDownloader = ({
 			dest,
 			limit,
 			category,
-			pageConcurrency:
-				pageConcurrency ?? DEFAULT_PAGE_CONCURRENCY,
-			downloadConcurrency:
-				downloadConcurrency ?? DEFAULT_DOWNLOAD_CONCURRENCY,
+			pageConcurrency: pageConcurrency ?? DEFAULT_PAGE_CONCURRENCY,
+			downloadConcurrency: downloadConcurrency ?? DEFAULT_DOWNLOAD_CONCURRENCY,
 			onEvent: (event) => {
 				if (cancelled) {
 					return;
