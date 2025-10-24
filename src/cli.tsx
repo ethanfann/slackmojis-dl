@@ -1,17 +1,37 @@
 #!/usr/bin/env node
 import fs from "node:fs";
-import { render } from "ink";
+import { type Instance, render } from "ink";
 import meow from "meow";
-import React from "react";
 import App from "./app.js";
 import {
 	fetchAllEmojis,
 	resolveLastPageHint,
 } from "./services/slackmojis/index.js";
 
-const meowCli = meow.default ?? meow;
+type MeowModule = typeof meow & { readonly default?: typeof meow };
 
-const cli = meowCli(
+const meowModule = meow as MeowModule;
+const meowCli = meowModule.default ?? meowModule;
+
+type CliFlagDefinitions = {
+	dest: meow.StringFlag;
+	limit: meow.NumberFlag;
+	"page-concurrency": meow.NumberFlag;
+	"download-concurrency": meow.NumberFlag;
+	dump: meow.BooleanFlag;
+	category: meow.StringFlag;
+};
+
+type CliFlags = {
+	dest?: string;
+	limit?: number;
+	pageConcurrency?: number;
+	downloadConcurrency?: number;
+	dump?: boolean;
+	category?: string;
+};
+
+const cli = meowCli<CliFlagDefinitions>(
 	`
 	Usage
 	  $ ./cli.js
@@ -41,20 +61,30 @@ const cli = meowCli(
 	},
 );
 
-const run = async () => {
-	if (cli.flags.dump) {
+const run = async (): Promise<void> => {
+	const flags = cli.flags as CliFlags;
+
+	if (flags.dump) {
 		try {
 			const lastPageHint = await resolveLastPageHint();
 			const results = await fetchAllEmojis({
-				limit: cli.flags.limit,
+				limit: flags.limit,
 				lastPageHint,
 			});
 			const data = JSON.stringify(results);
 			fs.writeFileSync("emojis.json", data);
 		} catch (error) {
-			console.error(error?.message || "Unable to dump emoji listing.");
-			if (error?.cause) {
-				console.error(error.cause);
+			const message =
+				error instanceof Error && typeof error.message === "string"
+					? error.message
+					: "Unable to dump emoji listing.";
+			console.error(message);
+
+			if (error && typeof error === "object" && "cause" in error) {
+				const cause = (error as { cause?: unknown }).cause;
+				if (cause !== undefined) {
+					console.error(cause);
+				}
 			}
 			process.exitCode = 1;
 		}
@@ -62,19 +92,19 @@ const run = async () => {
 		return;
 	}
 
-	const pageConcurrency = numberFlag(cli.flags.pageConcurrency) ?? undefined;
+	const pageConcurrency = numberFlag(flags.pageConcurrency) ?? undefined;
 	const downloadConcurrency =
-		numberFlag(cli.flags.downloadConcurrency) ?? undefined;
+		numberFlag(flags.downloadConcurrency) ?? undefined;
 
-	let app;
+	let app: Instance | undefined;
 
 	try {
 		app = render(
-			React.createElement(App, {
-				...cli.flags,
-				pageConcurrency,
-				downloadConcurrency,
-			}),
+			<App
+				{...flags}
+				pageConcurrency={pageConcurrency}
+				downloadConcurrency={downloadConcurrency}
+			/>,
 		);
 
 		if (typeof app?.waitUntilExit === "function") {
@@ -91,7 +121,7 @@ const run = async () => {
 	}
 };
 
-const numberFlag = (value) => {
+const numberFlag = (value: unknown): number | undefined => {
 	if (value === undefined || value === null) {
 		return undefined;
 	}
@@ -100,7 +130,7 @@ const numberFlag = (value) => {
 	return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : undefined;
 };
 
-run().catch((error) => {
+run().catch((error: unknown) => {
 	console.error(error);
 	process.exit(1);
 });

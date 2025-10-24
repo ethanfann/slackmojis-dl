@@ -3,18 +3,22 @@
 	"version": "3.0.0",
 	"description": "Downloads all emojis from https://slackmojis.com",
 	"type": "module",
-	"main": "src/cli.js",
+	"main": "dist/cli.js",
 	"author": "Ethan Fann",
 	"license": "MIT",
 	"scripts": {
-		"start": "node src/cli.js",
+		"build": "tsc",
+		"start": "npm run build --silent && node dist/cli.js",
 		"test": "ava",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
-		"update:last-page": "node scripts/update-last-page.js"
+		"update:last-page": "node scripts/update-last-page.js",
+		"prepublishOnly": "npm run build"
 	},
-	"bin": "bin/slackmojis-dl",
+	"bin": {
+		"slackmojis-dl": "dist/cli.js"
+	},
 	"dependencies": {
 		"@inkjs/ui": "^2.0.0",
 		"axios": "^0.21.1",
@@ -25,8 +29,11 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.6",
+		"@types/node": "^20.14.9",
+		"@types/react": "^19.0.0",
 		"ava": "^3.15.0",
-		"nock": "^13.5.6"
+		"nock": "^13.5.6",
+		"typescript": "^5.6.3"
 	},
 	"engines": {
 		"node": ">=20"

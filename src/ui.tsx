@@ -1,16 +1,45 @@
 import {
 	defaultTheme as inkUiDefaultTheme,
 	ProgressBar,
+	type Theme,
 	ThemeProvider,
 } from "@inkjs/ui";
 import { Box, Static, Text } from "ink";
-import React from "react";
+import React, { type FC } from "react";
 import { useEmojiDownloader } from "./hooks/use-emoji-downloader.js";
 
 const h = React.createElement;
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-const Spinner = () => {
+type ProgressBarTheme = Theme | null;
+type SummaryHandler = (summary: string | null) => void;
+
+type RenderProgressBarProps = {
+	ratio?: number | null;
+	width?: number;
+	theme?: ProgressBarTheme;
+	elementKey?: string;
+};
+
+type LogEntry = {
+	type?: string;
+	key?: string;
+	sequence?: number;
+	title?: string;
+	[key: string]: unknown;
+};
+
+type AppProps = {
+	dest?: string;
+	limit?: number | null;
+	category?: string | null;
+	pageConcurrency?: number | null;
+	downloadConcurrency?: number | null;
+	progressBarTheme?: ProgressBarTheme;
+	onSummary?: SummaryHandler | null;
+};
+
+const Spinner: FC = () => {
 	const [index, setIndex] = React.useState(0);
 
 	React.useEffect(() => {
@@ -28,7 +57,7 @@ const Spinner = () => {
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-const formatCount = (value, fallback = "?") => {
+const formatCount = (value: unknown, fallback: string = "?"): string => {
 	if (value === null || value === undefined) {
 		return fallback;
 	}
@@ -41,7 +70,7 @@ const formatCount = (value, fallback = "?") => {
 	return numberFormatter.format(numeric);
 };
 
-const formatRate = (value) => {
+const formatRate = (value: number): string => {
 	if (!Number.isFinite(value)) {
 		return "0.0";
 	}
@@ -49,8 +78,8 @@ const formatRate = (value) => {
 	return value.toFixed(1);
 };
 
-const formatEta = (value) => {
-	if (!Number.isFinite(value) || value <= 0) {
+const formatEta = (value: number | null): string | null => {
+	if (value === null || !Number.isFinite(value) || value <= 0) {
 		return null;
 	}
 
@@ -70,28 +99,30 @@ const formatEta = (value) => {
 	return `${seconds}s`;
 };
 
-const renderProgressBar = ({ ratio = 0, width = 40, theme, key }) => {
+const renderProgressBar = ({
+	ratio = 0,
+	width = 40,
+	theme,
+	elementKey,
+}: RenderProgressBarProps): React.ReactElement => {
 	const normalizedWidth = Math.max(Math.floor(width), 1);
 	const safeRatio = Math.min(Math.max(ratio ?? 0, 0), 1);
 
 	if (typeof ProgressBar === "function") {
 		const percentValue = Math.min(Math.max(safeRatio * 100, 0), 100);
-		let progressElement = h(ProgressBar, { value: percentValue });
-
 		const appliedTheme = theme ?? inkUiDefaultTheme ?? null;
+		const progressElement = <ProgressBar value={percentValue} />;
 
-		if (ThemeProvider && appliedTheme) {
-			progressElement = h(
-				ThemeProvider,
-				{ theme: appliedTheme },
-				progressElement,
-			);
-		}
+		const themedElement = appliedTheme ? (
+			<ThemeProvider theme={appliedTheme}>{progressElement}</ThemeProvider>
+		) : (
+			progressElement
+		);
 
-		return h(
-			Box,
-			{ key, width: normalizedWidth, minWidth: normalizedWidth },
-			progressElement,
+		return (
+			<Box key={elementKey} width={normalizedWidth} minWidth={normalizedWidth}>
+				{themedElement}
+			</Box>
 		);
 	}
 
@@ -99,14 +130,14 @@ const renderProgressBar = ({ ratio = 0, width = 40, theme, key }) => {
 	const empty = Math.max(normalizedWidth - filled, 0);
 	const bar = `${"=".repeat(filled)}${" ".repeat(empty)}`;
 
-	return h(
-		Box,
-		{ key, flexDirection: "row" },
-		h(Text, { dimColor: true }, `[${bar}]`),
+	return (
+		<Box key={elementKey} flexDirection="row">
+			<Text dimColor>[{bar}]</Text>
+		</Box>
 	);
 };
 
-const App = ({
+const App: FC<AppProps> = ({
 	dest = "emojis",
 	limit = null,
 	category: categoryName = null,
@@ -115,6 +146,14 @@ const App = ({
 	progressBarTheme = null,
 	onSummary = null,
 }) => {
+	const downloaderState = useEmojiDownloader({
+		dest,
+		limit,
+		category: categoryName,
+		pageConcurrency,
+		downloadConcurrency,
+	}) as any;
+
 	const {
 		status,
 		lastPage,
@@ -127,13 +166,7 @@ const App = ({
 		elapsedSeconds,
 		completed,
 		existingCount,
-	} = useEmojiDownloader({
-		dest,
-		limit,
-		category: categoryName,
-		pageConcurrency,
-		downloadConcurrency,
-	});
+	} = downloaderState;
 
 	const downloadCount = downloads.length;
 	const errorCount = errors.length;
@@ -163,15 +196,15 @@ const App = ({
 		return null;
 	})();
 
-	const logEntries = React.useMemo(() => {
-		const successEntries = downloads.map((entry) => ({
+	const logEntries = React.useMemo<LogEntry[]>(() => {
+		const successEntries = downloads.map((entry: any) => ({
 			...entry,
 			type: entry.type ?? "success",
-		}));
-		const errorEntries = errors.map((entry) => ({
+		})) as LogEntry[];
+		const errorEntries = errors.map((entry: any) => ({
 			...entry,
 			type: entry.type ?? "error",
-		}));
+		})) as LogEntry[];
 
 		return successEntries.concat(errorEntries).sort((left, right) => {
 			const leftSeq = left.sequence ?? 0;
@@ -353,7 +386,7 @@ const App = ({
 				ratio: progressRatio,
 				width: progressBarWidth,
 				theme: progressBarTheme,
-				key: "progress-bar",
+				elementKey: "progress-bar",
 			}),
 		];
 
@@ -386,24 +419,28 @@ const App = ({
 
 	const logSection =
 		logEntries.length > 0
-			? h(Static, { items: logEntries }, (entry, index) => {
-					const color =
-						entry.type === "error"
-							? "red"
-							: entry.type === "warning"
-								? "yellow"
-								: "green";
-					const derivedKey =
-						entry.key ??
-						(entry.sequence !== undefined
-							? `entry-${entry.sequence}`
-							: `entry-${index}`);
+			? h(Static, {
+					items: logEntries,
+					children: (item: unknown, index: number) => {
+						const entry = item as LogEntry;
+						const color =
+							entry.type === "error"
+								? "red"
+								: entry.type === "warning"
+									? "yellow"
+									: "green";
+						const derivedKey =
+							entry.key ??
+							(entry.sequence !== undefined
+								? `entry-${entry.sequence}`
+								: `entry-${index}`);
 
-					return h(
-						Box,
-						{ key: derivedKey },
-						h(Text, { color }, entry.title ?? ""),
-					);
+						return h(
+							Box,
+							{ key: derivedKey },
+							h(Text, { color }, entry.title ?? ""),
+						);
+					},
 				})
 			: null;
 
@@ -422,4 +459,5 @@ const App = ({
 	);
 };
 
+export type { AppProps };
 export default App;
