@@ -111,7 +111,14 @@ const formatEta = (value) => {
 	return `${seconds}s`;
 };
 
-const renderProgressBar = ({ ratio = 0, width = 40, ink, inkUi, theme }) => {
+const renderProgressBar = ({
+	ratio = 0,
+	width = 40,
+	ink,
+	inkUi,
+	theme,
+	key,
+}) => {
 	const { Box, Text } = ink;
 	const normalizedWidth = Math.max(Math.floor(width), 1);
 	const safeRatio = Math.min(Math.max(ratio ?? 0, 0), 1);
@@ -131,7 +138,7 @@ const renderProgressBar = ({ ratio = 0, width = 40, ink, inkUi, theme }) => {
 
 		return h(
 			Box,
-			{ width: normalizedWidth, minWidth: normalizedWidth },
+			{ key, width: normalizedWidth, minWidth: normalizedWidth },
 			progressElement,
 		);
 	}
@@ -142,7 +149,7 @@ const renderProgressBar = ({ ratio = 0, width = 40, ink, inkUi, theme }) => {
 
 	return h(
 		Box,
-		{ flexDirection: "row" },
+		{ key, flexDirection: "row" },
 		h(Text, { dimColor: true }, `[${bar}]`),
 	);
 };
@@ -430,6 +437,7 @@ const App = ({
 				ink,
 				inkUi,
 				theme: inkUiTheme,
+				key: "progress-bar",
 			}),
 		];
 
@@ -437,7 +445,7 @@ const App = ({
 			segments.push(
 				h(
 					Box,
-					{ marginLeft: 1 },
+					{ key: "progress-bar-percent", marginLeft: 1 },
 					h(Text, { dimColor: true }, progressPercentLabel),
 				),
 			);
@@ -447,7 +455,7 @@ const App = ({
 			segments.push(
 				h(
 					Box,
-					{ marginLeft: 1 },
+					{ key: "progress-bar-eta", marginLeft: 1 },
 					h(Text, { dimColor: true }, `${etaValue} remaining`),
 				),
 			);
