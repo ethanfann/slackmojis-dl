@@ -21,19 +21,16 @@ const Spinner = () => {
 	return spinnerFrames[index];
 };
 
-const BoundedLog = ({ entries, height, width, ink }) => {
+const BoundedLog = ({ entries, limit, width, ink }) => {
 	const { Box, Text } = ink;
 	const total = entries.length;
-	const boundedHeight =
-		Number.isFinite(height) && height > 0 ? Math.floor(height) : total || 1;
-	const visibleCount = Math.max(boundedHeight, 1);
-	const startIndex = Math.max(total - visibleCount, 0);
+	const normalizedLimit =
+		Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : total || 1;
+	const visibleLimit = Math.max(normalizedLimit, 1);
+	const startIndex = Math.max(total - visibleLimit, 0);
 	const visibleEntries = entries.slice(startIndex);
 	const containerProps = {
 		flexDirection: "column",
-		flexGrow: 1,
-		height: visibleCount,
-		minHeight: visibleCount,
 		justifyContent: "flex-end",
 	};
 
@@ -160,6 +157,7 @@ const App = ({
 	ink = null,
 	inkUi = null,
 	inkUiTheme = null,
+	onSummary = null,
 }) => {
 	if (!ink) {
 		throw new Error("Ink components are required");
@@ -171,11 +169,15 @@ const App = ({
 	const resolvedColumns = columns ?? stdout?.columns ?? process.stdout?.columns;
 	const resolvedRows = rows ?? stdout?.rows ?? process.stdout?.rows;
 
-	const reservedRows = 2; // status line and padding
-	const logHeight =
+	const reservedRows = 2; // approximate rows reserved for status
+	const logLimit =
 		Number.isFinite(resolvedRows) && resolvedRows > reservedRows
 			? resolvedRows - reservedRows
 			: undefined;
+	const visibleLogLimit =
+		Number.isFinite(logLimit) && logLimit > 0
+			? Math.max(Math.min(Math.floor(logLimit), 40), 6)
+			: 20;
 	const viewportWidth = Number.isFinite(resolvedColumns)
 		? resolvedColumns
 		: undefined;
@@ -199,11 +201,14 @@ const App = ({
 		downloadConcurrency,
 	});
 
-	const processedEmojis = downloads.length + errors.length;
+	const downloadCount = downloads.length;
+	const errorCount = errors.length;
+	const latestErrorEntry = errorCount > 0 ? errors[errorCount - 1] : null;
+	const processedEmojis = downloadCount + errorCount;
 	const formattedElapsed =
 		elapsedSeconds > 0 ? elapsedSeconds.toFixed(1) : "0.0";
 	const rawDownloadsPerSecond =
-		elapsedSeconds > 0 ? downloads.length / elapsedSeconds : 0;
+		elapsedSeconds > 0 ? downloadCount / elapsedSeconds : 0;
 	const emojisPerSecond =
 		elapsedSeconds > 0
 			? Math.round((processedEmojis / elapsedSeconds) * 10) / 10
@@ -241,9 +246,82 @@ const App = ({
 		});
 	}, [downloads, errors]);
 
+	const progressCount = existingCount + downloadCount;
+	const downloadsTarget = expectedTotal ?? totalEmojis ?? null;
+	const progressTarget =
+		downloadsTarget !== null ? existingCount + downloadsTarget : null;
+
+	React.useEffect(() => {
+		if (typeof onSummary !== "function") {
+			return;
+		}
+
+		if (status === "error") {
+			const failureSegments = [
+				"Download failed",
+				downloadCount > 0
+					? `Added ${formatCount(downloadCount)} emoji${downloadCount === 1 ? "" : "s"}`
+					: null,
+				errorCount > 0
+					? `${formatCount(errorCount)} error${errorCount === 1 ? "" : "s"}`
+					: null,
+				latestErrorEntry?.title ?? null,
+			]
+				.filter(Boolean)
+				.join(" | ");
+			onSummary(failureSegments || "Download failed");
+			return;
+		}
+
+		if (completed) {
+			const summarySegments = [
+				"Download complete",
+				`Added ${formatCount(downloadCount)} emoji${downloadCount === 1 ? "" : "s"}`,
+			];
+
+			if (existingCount > 0) {
+				summarySegments.push(`Existing ${formatCount(existingCount)}`);
+			}
+
+			if (progressTarget !== null) {
+				summarySegments.push(`Total ${formatCount(progressTarget)}`);
+			}
+
+			summarySegments.push(
+				errorCount > 0
+					? `${formatCount(errorCount)} error${errorCount === 1 ? "" : "s"}`
+					: "No errors",
+			);
+
+			if (elapsedSeconds > 0) {
+				summarySegments.push(`Elapsed ${formattedElapsed}s`);
+			}
+
+			if (dest) {
+				summarySegments.push(`Saved to ${dest}`);
+			}
+
+			onSummary(summarySegments.join(" | "));
+			return;
+		}
+
+		onSummary(null);
+	}, [
+		completed,
+		dest,
+		downloadCount,
+		elapsedSeconds,
+		errorCount,
+		existingCount,
+		formattedElapsed,
+		latestErrorEntry,
+		onSummary,
+		progressTarget,
+		status,
+	]);
+
 	if (status === "error") {
-		const fatalMessage =
-			errors.length > 0 ? errors[errors.length - 1].title : "Unexpected error";
+		const fatalMessage = latestErrorEntry?.title ?? "Unexpected error";
 		return h(Text, { color: "red" }, fatalMessage);
 	}
 
@@ -301,10 +379,6 @@ const App = ({
 			? existingCount + (expectedTotal ?? totalEmojis ?? 0)
 			: null;
 
-	const progressCount = existingCount + downloads.length;
-	const downloadsTarget = expectedTotal ?? totalEmojis ?? null;
-	const progressTarget =
-		downloadsTarget !== null ? existingCount + downloadsTarget : null;
 	const progressRatio =
 		progressTarget && progressTarget > 0
 			? Math.min(Math.max(progressCount / progressTarget, 0), 1)
@@ -312,7 +386,7 @@ const App = ({
 
 	const remainingDownloads =
 		downloadsTarget !== null
-			? Math.max(downloadsTarget - downloads.length, 0)
+			? Math.max(downloadsTarget - downloadCount, 0)
 			: null;
 	const etaSeconds =
 		remainingDownloads !== null &&
@@ -323,7 +397,7 @@ const App = ({
 	const etaValue = etaSeconds !== null ? formatEta(etaSeconds) : null;
 
 	const errorLabel =
-		errors.length > 0 ? `Errors ${formatCount(errors.length)}` : null;
+		errorCount > 0 ? `Errors ${formatCount(errorCount)}` : null;
 
 	const statusSegments = [
 		`Progress ${formatCount(progressCount)}/${formatCount(totalEmojiLabel)}`,
@@ -347,11 +421,8 @@ const App = ({
 
 	const showProgressBar = progressRatio !== null;
 
-	const progressBarLine = (() => {
-		if (!showProgressBar || progressRatio === null) {
-			return null;
-		}
-
+	let progressBarLine = null;
+	if (showProgressBar && progressRatio !== null) {
 		const segments = [
 			renderProgressBar({
 				ratio: progressRatio,
@@ -382,25 +453,24 @@ const App = ({
 			);
 		}
 
-		return h(
+		progressBarLine = h(
 			Box,
 			{ marginTop: 1, flexDirection: "row", alignItems: "center" },
 			segments,
 		);
-	})();
+	}
 
 	return h(
 		Box,
-		{ flexDirection: "column", width: "100%", height: "100%", flexGrow: 1 },
+		{ flexDirection: "column", width: "100%" },
 		h(BoundedLog, {
 			entries: logEntries,
-			height: logHeight,
+			limit: visibleLogLimit,
 			width: viewportWidth,
 			ink,
 		}),
 		h(Box, { marginTop: 1 }, h(Text, { dimColor: true }, statusLine)),
 		progressBarLine,
-		completed ? h(Text, null, "") : null,
 	);
 };
 

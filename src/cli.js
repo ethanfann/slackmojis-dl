@@ -88,6 +88,12 @@ const run = async () => {
 		numberFlag(cli.flags.downloadConcurrency) ?? undefined;
 
 	const fullscreenCleanup = enterFullscreen(process.stdout);
+	let exitSummary = null;
+	const captureSummary = (summary) => {
+		if (typeof summary === "string" && summary.trim().length > 0) {
+			exitSummary = summary.trim();
+		}
+	};
 
 	try {
 		const app = render(
@@ -99,6 +105,7 @@ const run = async () => {
 				ink: inkModule,
 				inkUi: inkUiModule,
 				inkUiTheme,
+				onSummary: captureSummary,
 			}),
 		);
 
@@ -113,6 +120,9 @@ const run = async () => {
 		fullscreenCleanup();
 		if (process.stdout.isTTY) {
 			console.log();
+		}
+		if (exitSummary) {
+			console.log(exitSummary);
 		}
 	}
 };

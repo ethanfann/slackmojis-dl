@@ -13,10 +13,7 @@ const enterFullscreen = (stream = process.stdout) => {
 		}
 	};
 
-	write("\u001b[?1049h"); // Switch to alternate screen buffer
-	write("\u001b[H"); // Move cursor to top-left
-	write("\u001b[2J"); // Clear screen
-	write("\u001b[3J"); // Clear scrollback
+	write("\u001b[?7l"); // Disable line wrapping
 	write("\u001b[?25l"); // Hide cursor
 
 	const restore = () => {
@@ -25,7 +22,7 @@ const enterFullscreen = (stream = process.stdout) => {
 		}
 
 		restored = true;
-		write("\u001b[?1049l"); // Leave alternate screen buffer
+		write("\u001b[?7h"); // Re-enable line wrapping
 		write("\u001b[?25h"); // Show cursor
 	};
 
