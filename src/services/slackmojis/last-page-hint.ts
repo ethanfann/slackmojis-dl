@@ -10,19 +10,27 @@ const MIN_LAST_PAGE_INDEX = 199;
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-let localSnapshot = null;
+type LastPagePayload = {
+	lastPage?: number;
+	updatedAt?: string;
+	[key: string]: unknown;
+};
+
+let localSnapshot: number | null = null;
 try {
-	// eslint-disable-next-line global-require, import/no-dynamic-require
-	const data = require(path.join(__dirname, "../../../data/lastPage.json"));
-	if (Number.isFinite(data?.lastPage) && data.lastPage >= 0) {
-		localSnapshot = Math.floor(data.lastPage);
+	const data = require(
+		path.join(__dirname, "../../../data/lastPage.json"),
+	) as LastPagePayload;
+	const value = data?.lastPage;
+	if (Number.isFinite(value) && (value as number) >= 0) {
+		localSnapshot = Math.floor(value as number);
 	}
 } catch {
 	localSnapshot = null;
 }
 
-const fetchJson = (url) =>
-	new Promise((resolve, reject) => {
+const fetchJson = <T = unknown>(url: string): Promise<T> =>
+	new Promise<T>((resolve, reject) => {
 		https
 			.get(url, (response) => {
 				if (response.statusCode !== 200) {
@@ -38,7 +46,7 @@ const fetchJson = (url) =>
 				});
 				response.on("end", () => {
 					try {
-						const parsed = JSON.parse(raw);
+						const parsed = JSON.parse(raw) as T;
 						resolve(parsed);
 					} catch (error) {
 						reject(error);
@@ -48,16 +56,19 @@ const fetchJson = (url) =>
 			.on("error", reject);
 	});
 
-const resolveLastPageHint = async () => {
+const resolveLastPageHint = async (): Promise<number> => {
+	const snapshotValue = localSnapshot;
 	let best =
-		Number.isFinite(localSnapshot) && localSnapshot >= 0 ? localSnapshot : null;
+		Number.isFinite(snapshotValue) && (snapshotValue as number) >= 0
+			? Math.floor(snapshotValue as number)
+			: null;
 
 	try {
-		const payload = await fetchJson(HINT_URL);
+		const payload = await fetchJson<LastPagePayload>(HINT_URL);
 		const value = payload?.lastPage;
-		if (Number.isFinite(value) && value >= 0) {
-			best =
-				best === null ? Math.floor(value) : Math.max(best, Math.floor(value));
+		if (Number.isFinite(value) && (value as number) >= 0) {
+			const normalized = Math.floor(value as number);
+			best = best === null ? normalized : Math.max(best, normalized);
 		}
 	} catch {
 		// ignore network/parse failures

@@ -1,9 +1,10 @@
+import type { SlackmojiEntry } from "../../types/slackmoji.js";
 import { fetchPage } from "./fetch-page.js";
 import { MIN_LAST_PAGE_INDEX } from "./last-page-hint.js";
 
 const DEFAULT_PAGE_CONCURRENCY = 10;
 
-const sanitizeLimit = (limit) => {
+const sanitizeLimit = (limit: unknown): number | null => {
 	if (limit === undefined || limit === null) {
 		return null;
 	}
@@ -20,17 +21,23 @@ const sanitizeLimit = (limit) => {
 	return Math.floor(parsed);
 };
 
+type FetchAllEmojisOptions = {
+	limit?: number | null;
+	lastPageHint?: number | null;
+	concurrency?: number;
+};
+
 const fetchAllEmojis = async ({
 	limit,
 	lastPageHint,
 	concurrency = DEFAULT_PAGE_CONCURRENCY,
-}) => {
+}: FetchAllEmojisOptions): Promise<SlackmojiEntry[]> => {
 	const maxPages = sanitizeLimit(limit);
 	const effectiveLimit =
 		maxPages !== null
 			? maxPages
-			: Number.isFinite(lastPageHint) && lastPageHint >= 0
-				? Math.floor(lastPageHint) + 1
+			: Number.isFinite(lastPageHint) && (lastPageHint as number) >= 0
+				? Math.floor(lastPageHint as number) + 1
 				: null;
 	const clampedLimit =
 		effectiveLimit !== null
@@ -45,9 +52,9 @@ const fetchAllEmojis = async ({
 			? Math.floor(concurrency)
 			: DEFAULT_PAGE_CONCURRENCY;
 
-	const pages = [];
+	const pages: SlackmojiEntry[][] = [];
 	let cursor = 0;
-	let discoveredEnd = null;
+	let discoveredEnd: number | null = null;
 
 	const workers = Array.from(
 		{
@@ -73,8 +80,7 @@ const fetchAllEmojis = async ({
 				const pageIndex = cursor;
 				cursor += 1;
 
-				const pageResults = await fetchPage(pageIndex);
-				const normalized = Array.isArray(pageResults) ? pageResults : [];
+				const normalized = await fetchPage(pageIndex);
 
 				if (normalized.length === 0) {
 					if (discoveredEnd === null || pageIndex < discoveredEnd) {
@@ -103,3 +109,4 @@ const fetchAllEmojis = async ({
 };
 
 export { fetchAllEmojis };
+export type { FetchAllEmojisOptions };

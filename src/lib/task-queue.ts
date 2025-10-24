@@ -1,4 +1,21 @@
-const scheduleAsync = (fn) => {
+type Task<T> = () => Promise<T> | T;
+
+type PendingTask<T> = {
+	task: Task<T>;
+	resolve: (value: T | PromiseLike<T>) => void;
+	reject: (reason?: unknown) => void;
+};
+
+type QueueStats = {
+	active: number;
+	pending: number;
+};
+
+type TaskQueueOptions = {
+	onStatsChange?: (stats: QueueStats) => void;
+};
+
+const scheduleAsync = (fn: () => void): void => {
 	if (typeof setImmediate === "function") {
 		setImmediate(fn);
 	} else {
@@ -6,10 +23,17 @@ const scheduleAsync = (fn) => {
 	}
 };
 
-const createTaskQueue = (limit, { onStatsChange } = {}) => {
-	const maxConcurrency = Number.isFinite(limit) && limit > 0 ? limit : 1;
+const createTaskQueue = <T>(
+	limit: number | undefined,
+	options: TaskQueueOptions = {},
+) => {
+	const maxConcurrency =
+		Number.isFinite(limit) && (limit as number) > 0
+			? Math.floor(limit as number)
+			: 1;
 	let activeCount = 0;
-	const pending = [];
+	const pending: Array<PendingTask<T>> = [];
+	const onStatsChange = options.onStatsChange;
 
 	const emitStats = () => {
 		if (typeof onStatsChange === "function") {
@@ -51,19 +75,19 @@ const createTaskQueue = (limit, { onStatsChange } = {}) => {
 			});
 	};
 
-	const push = (task) =>
-		new Promise((resolve, reject) => {
+	const push = (task: Task<T>): Promise<T> =>
+		new Promise<T>((resolve, reject) => {
 			pending.push({ task, resolve, reject });
 			emitStats();
 			scheduleAsync(runNext);
 		});
 
-	const drain = () => {
+	const drain = (): Promise<void> => {
 		if (activeCount === 0 && pending.length === 0) {
 			return Promise.resolve();
 		}
 
-		return new Promise((resolve) => {
+		return new Promise<void>((resolve) => {
 			const check = () => {
 				if (activeCount === 0 && pending.length === 0) {
 					resolve();
@@ -79,7 +103,7 @@ const createTaskQueue = (limit, { onStatsChange } = {}) => {
 
 	return {
 		push,
-		stats: () => ({
+		stats: (): QueueStats => ({
 			active: activeCount,
 			pending: pending.length,
 		}),
@@ -88,3 +112,4 @@ const createTaskQueue = (limit, { onStatsChange } = {}) => {
 };
 
 export { createTaskQueue };
+export type { QueueStats };

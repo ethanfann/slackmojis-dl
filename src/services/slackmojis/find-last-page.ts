@@ -1,21 +1,29 @@
+import type { SlackmojiEntry } from "../../types/slackmoji.js";
 import { fetchPage } from "./fetch-page.js";
 
-const memoizedFetch = () => {
-	const cache = new Map();
+type MemoizedFetch = (page: number) => Promise<SlackmojiEntry[]>;
 
-	return async (page) => {
+const memoizedFetch = (): MemoizedFetch => {
+	const cache = new Map<number, SlackmojiEntry[]>();
+
+	return async (page: number) => {
 		if (cache.has(page)) {
-			return cache.get(page);
+			return cache.get(page) ?? [];
 		}
 
 		const results = await fetchPage(page);
-		const normalized = Array.isArray(results) ? results : [];
-		cache.set(page, normalized);
-		return normalized;
+		cache.set(page, results);
+		return results;
 	};
 };
 
-const findLastPage = async ({ floor = 0 } = {}) => {
+type FindLastPageOptions = {
+	floor?: number;
+};
+
+const findLastPage = async ({
+	floor = 0,
+}: FindLastPageOptions = {}): Promise<number> => {
 	const fetch = memoizedFetch();
 
 	const ensureFirstPageExists = async () => {
@@ -57,7 +65,13 @@ const findLastPage = async ({ floor = 0 } = {}) => {
 		return { lowerBound, upperBound };
 	};
 
-	const binarySearch = async ({ lowerBound, upperBound }) => {
+	const binarySearch = async ({
+		lowerBound,
+		upperBound,
+	}: {
+		lowerBound: number;
+		upperBound: number;
+	}) => {
 		let lastNonEmpty = lowerBound;
 		let low = lowerBound;
 		let high = upperBound;
@@ -81,10 +95,9 @@ const findLastPage = async ({ floor = 0 } = {}) => {
 		const range = await expandSearchRange();
 		return binarySearch(range);
 	} catch (error) {
-		const wrapped = new Error("Unable to determine last emoji page.");
-		wrapped.cause = error;
-		throw wrapped;
+		throw new Error("Unable to determine last emoji page.", { cause: error });
 	}
 };
 
 export { findLastPage };
+export type { FindLastPageOptions };

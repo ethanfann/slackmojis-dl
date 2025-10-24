@@ -1,8 +1,11 @@
 import * as fsPromises from "node:fs/promises";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
-import { buildDownloadTargets } from "../emoji/build-download-targets.js";
-import { createTaskQueue } from "../lib/task-queue.js";
+import {
+	buildDownloadTargets,
+	type DownloadTarget,
+} from "../emoji/build-download-targets.js";
+import { createTaskQueue, type QueueStats } from "../lib/task-queue.js";
 import { listEmojiEntries } from "../services/filesystem/emoji-inventory.js";
 import {
 	downloadImage,
@@ -11,14 +14,16 @@ import {
 	MIN_LAST_PAGE_INDEX,
 	resolveLastPageHint,
 } from "../services/slackmojis/index.js";
+import type { SlackmojiEntry } from "../types/slackmoji.js";
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
 const DEFAULT_PAGE_CONCURRENCY = 12;
 const PAGE_SIZE = 500;
 
-const normalizeKey = (category, name) => path.join(category, name);
+const normalizeKey = (category: string, name: string): string =>
+	path.join(category, name);
 
-const buildFileName = (originalName, attempt) => {
+const buildFileName = (originalName: string, attempt: number): string => {
 	if (attempt === 0) {
 		return originalName;
 	}
@@ -27,11 +32,65 @@ const buildFileName = (originalName, attempt) => {
 	return `${parsed.name}-${attempt}${parsed.ext}`;
 };
 
-const formatErrorMessage = (error) => {
+const formatErrorMessage = (error: unknown): string => {
 	if (!error) return "Unknown error";
-	const baseMessage = error.message || "Unknown error";
-	const causeMessage = error.cause?.message;
+	const baseMessage =
+		(error as { message?: string }).message || "Unknown error";
+	const causeMessage = (error as { cause?: { message?: string } })?.cause
+		?.message;
 	return causeMessage ? `${baseMessage}: ${causeMessage}` : baseMessage;
+};
+
+type PipelineStatusStage = "determine-last-page" | "fetching" | "complete";
+
+type PipelineEventLogEntry = {
+	key: string;
+	title: string;
+};
+
+type PipelineProgress = {
+	fetched: number;
+	current: number;
+};
+
+type EmojiPipelineEvent =
+	| { type: "status"; stage: PipelineStatusStage }
+	| { type: "page-total"; total: number }
+	| { type: "meta"; lastPage: number }
+	| { type: "expected-total"; count: number }
+	| { type: "existing-entries"; count: number }
+	| { type: "page-progress"; progress: PipelineProgress }
+	| { type: "page-stats"; stats: QueueStats }
+	| { type: "downloads-scheduled"; count: number }
+	| { type: "download-stats"; stats: QueueStats }
+	| { type: "download-success"; entry: PipelineEventLogEntry }
+	| { type: "download-error"; entry: PipelineEventLogEntry; error?: string }
+	| { type: "elapsed"; seconds: number }
+	| { type: "error"; error: unknown };
+
+type EmojiPipelineOptions = {
+	dest: string;
+	limit?: number | null;
+	category?: string | null;
+	downloadConcurrency?: number | null;
+	pageConcurrency?: number | null;
+	onEvent?: (event: EmojiPipelineEvent) => void;
+};
+
+type EmojiPipeline = {
+	start: () => Promise<void>;
+	stop: () => void;
+};
+
+const ensurePositiveInteger = (
+	value: number | null | undefined,
+	fallback: number,
+): number => {
+	if (Number.isFinite(value) && (value as number) > 0) {
+		return Math.floor(value as number);
+	}
+
+	return fallback;
 };
 
 const createEmojiPipeline = ({
@@ -41,21 +100,19 @@ const createEmojiPipeline = ({
 	onEvent,
 	downloadConcurrency = DEFAULT_DOWNLOAD_CONCURRENCY,
 	pageConcurrency = DEFAULT_PAGE_CONCURRENCY,
-}) => {
+}: EmojiPipelineOptions): EmojiPipeline => {
 	const abortController = new AbortController();
 	const { signal } = abortController;
 
-	const emit = (event) => {
+	const emit = (event: EmojiPipelineEvent): void => {
 		if (signal.aborted) {
 			return;
 		}
 
-		if (typeof onEvent === "function") {
-			onEvent(event);
-		}
+		onEvent?.(event);
 	};
 
-	const run = async () => {
+	const run = async (): Promise<void> => {
 		const rootDir = dest === "emojis" ? process.cwd() : dest;
 		const outputDir = path.join(rootDir, "emojis");
 
@@ -66,8 +123,8 @@ const createEmojiPipeline = ({
 		}
 
 		const limitProvided = limit !== undefined && limit !== null;
-		let maxPages = null;
-		let lastPageHint = null;
+		let maxPages: number | null = null;
+		let lastPageHint: number | null = null;
 
 		if (limitProvided) {
 			const parsedLimit = Number(limit);
@@ -82,6 +139,8 @@ const createEmojiPipeline = ({
 			}
 		}
 
+		emit({ type: "status", stage: "determine-last-page" });
+
 		if (maxPages === null) {
 			try {
 				lastPageHint = await resolveLastPageHint();
@@ -91,14 +150,14 @@ const createEmojiPipeline = ({
 		}
 
 		const floorIndex = Math.max(
-			Number.isFinite(lastPageHint) && lastPageHint >= 0
-				? Math.floor(lastPageHint)
+			Number.isFinite(lastPageHint) && (lastPageHint as number) >= 0
+				? Math.floor(lastPageHint as number)
 				: MIN_LAST_PAGE_INDEX,
 			MIN_LAST_PAGE_INDEX,
 		);
 
-		let lastPageIndex;
-		let lastPageResults;
+		let lastPageIndex: number;
+		let lastPageResults: SlackmojiEntry[];
 
 		if (maxPages !== null) {
 			lastPageIndex = Math.max(maxPages - 1, 0);
@@ -124,7 +183,7 @@ const createEmojiPipeline = ({
 			normalizedLastPageResults.length;
 		emit({ type: "expected-total", count: expectedDownloads });
 
-		const prefetchedPages = new Map();
+		const prefetchedPages = new Map<number, SlackmojiEntry[]>();
 		prefetchedPages.set(lastPageIndex, normalizedLastPageResults);
 		let dynamicExpected = expectedDownloads;
 		let scheduledDownloadTotal = 0;
@@ -132,11 +191,17 @@ const createEmojiPipeline = ({
 		const existingEntries = listEmojiEntries(outputDir);
 		const existingSet = new Set(existingEntries);
 		const scheduledKeys = new Set(existingEntries);
-		const reservedKeys = new Set();
+		const reservedKeys = new Set<string>();
 
 		emit({ type: "existing-entries", count: existingEntries.length });
 
-		let startTime = null;
+		let startTime: number | null = null;
+
+		const ensureStartTime = () => {
+			if (startTime === null) {
+				startTime = performance.now();
+			}
+		};
 
 		const updateElapsed = () => {
 			if (startTime === null || signal.aborted) {
@@ -147,14 +212,8 @@ const createEmojiPipeline = ({
 			emit({ type: "elapsed", seconds: elapsedSeconds });
 		};
 
-		const ensureStartTime = () => {
-			if (startTime === null) {
-				startTime = performance.now();
-			}
-		};
-
-		const ensuredDirectories = new Set();
-		const ensureDir = async (dir) => {
+		const ensuredDirectories = new Set<string>();
+		const ensureDir = async (dir: string): Promise<void> => {
 			if (ensuredDirectories.has(dir)) {
 				return;
 			}
@@ -163,12 +222,12 @@ const createEmojiPipeline = ({
 			ensuredDirectories.add(dir);
 		};
 
-		const reserveDestination = async (emoji) => {
+		const reserveDestination = async (emoji: DownloadTarget) => {
 			await ensureDir(emoji.dest);
 
 			let attempt = 0;
-			let fileName;
-			let key;
+			let fileName: string;
+			let key: string;
 
 			do {
 				fileName = buildFileName(emoji.name, attempt);
@@ -185,15 +244,20 @@ const createEmojiPipeline = ({
 			};
 		};
 
-		const downloadQueue = createTaskQueue(downloadConcurrency, {
+		const downloadConcurrencyValue = ensurePositiveInteger(
+			downloadConcurrency,
+			DEFAULT_DOWNLOAD_CONCURRENCY,
+		);
+
+		const downloadQueue = createTaskQueue<void>(downloadConcurrencyValue, {
 			onStatsChange: (stats) => {
 				emit({ type: "download-stats", stats });
 			},
 		});
 
-		const downloadTasks = [];
+		const downloadTasks: Promise<void>[] = [];
 
-		const scheduleDownload = (emoji) => {
+		const scheduleDownload = (emoji: DownloadTarget): void => {
 			if (signal.aborted) {
 				return;
 			}
@@ -264,26 +328,28 @@ const createEmojiPipeline = ({
 					emit({ type: "error", error });
 				});
 
-			downloadTasks.push(taskPromise);
+			downloadTasks.push(taskPromise.then(() => undefined));
 		};
 
 		emit({ type: "status", stage: "fetching" });
 
-		const pageQueue = createTaskQueue(pageConcurrency, {
+		const pageConcurrencyValue = ensurePositiveInteger(
+			pageConcurrency,
+			DEFAULT_PAGE_CONCURRENCY,
+		);
+
+		const pageQueue = createTaskQueue<void>(pageConcurrencyValue, {
 			onStatsChange: (stats) => {
-				emit({
-					type: "page-stats",
-					stats,
-				});
+				emit({ type: "page-stats", stats });
 			},
 		});
 
 		let fetchedPages = 0;
 		let nextPageIndex = 0;
 		let endReached = false;
-		let knownTotal = totalPages;
+		let knownTotal: number | null = totalPages;
 
-		const updatePageTotal = (candidate) => {
+		const updatePageTotal = (candidate: number) => {
 			if (!Number.isFinite(candidate) || candidate < 0) {
 				return;
 			}
@@ -295,9 +361,11 @@ const createEmojiPipeline = ({
 			}
 		};
 
-		const getPageResults = async (pageIndex) => {
+		const getPageResults = async (
+			pageIndex: number,
+		): Promise<SlackmojiEntry[]> => {
 			if (prefetchedPages.has(pageIndex)) {
-				const results = prefetchedPages.get(pageIndex);
+				const results = prefetchedPages.get(pageIndex) ?? [];
 				prefetchedPages.delete(pageIndex);
 				return results;
 			}
@@ -306,11 +374,7 @@ const createEmojiPipeline = ({
 		};
 
 		const schedulePageFetch = () => {
-			if (signal.aborted) {
-				return;
-			}
-
-			if (endReached) {
+			if (signal.aborted || endReached) {
 				return;
 			}
 
@@ -356,7 +420,7 @@ const createEmojiPipeline = ({
 						category,
 						outputDir,
 					);
-					const newDownloads = [];
+					const newDownloads: DownloadTarget[] = [];
 
 					for (const emoji of prepared) {
 						const key = normalizeKey(emoji.category, emoji.name);
@@ -369,10 +433,7 @@ const createEmojiPipeline = ({
 					}
 
 					if (newDownloads.length > 0) {
-						emit({
-							type: "downloads-scheduled",
-							count: newDownloads.length,
-						});
+						emit({ type: "downloads-scheduled", count: newDownloads.length });
 					}
 
 					newDownloads.forEach((emoji) => {
@@ -422,8 +483,8 @@ const createEmojiPipeline = ({
 
 		const initialWorkers =
 			knownTotal !== null
-				? Math.min(pageConcurrency, knownTotal)
-				: pageConcurrency;
+				? Math.min(pageConcurrencyValue, knownTotal)
+				: pageConcurrencyValue;
 
 		for (let index = 0; index < initialWorkers; index += 1) {
 			if (signal.aborted) {
@@ -439,6 +500,7 @@ const createEmojiPipeline = ({
 			emit({ type: "page-total", total: fetchedPages });
 		}
 
+		await downloadQueue.drain();
 		await Promise.allSettled(downloadTasks);
 
 		if (!signal.aborted) {
@@ -465,3 +527,5 @@ export {
 	DEFAULT_DOWNLOAD_CONCURRENCY,
 	DEFAULT_PAGE_CONCURRENCY,
 };
+
+export type { EmojiPipelineEvent, EmojiPipelineOptions };

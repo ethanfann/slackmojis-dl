@@ -8,6 +8,7 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "tsc",
+		"pretest": "npm run build --silent",
 		"start": "npm run build --silent && node dist/cli.js",
 		"test": "ava",
 		"lint": "biome check .",
@@ -16,11 +17,21 @@
 		"update:last-page": "node scripts/update-last-page.js",
 		"prepublishOnly": "npm run build"
 	},
+	"ava": {
+		"files": [
+			"test/**/*.test.ts"
+		],
+		"extensions": [
+			"ts"
+		],
+		"nodeArguments": [
+			"--import=tsx/esm"
+		]
+	},
 	"bin": {
 		"slackmojis-dl": "dist/cli.js"
 	},
 	"dependencies": {
-		"@inkjs/ui": "^2.0.0",
 		"axios": "^0.21.1",
 		"glob": "^7.2.0",
 		"ink": "^6.3.1",
@@ -29,10 +40,12 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.6",
+		"@types/glob": "^8.1.0",
 		"@types/node": "^20.14.9",
 		"@types/react": "^19.0.0",
 		"ava": "^3.15.0",
 		"nock": "^13.5.6",
+		"tsx": "^4.19.0",
 		"typescript": "^5.6.3"
 	},
 	"engines": {

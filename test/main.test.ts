@@ -6,11 +6,12 @@ import nock from "nock";
 import {
 	buildDownloadTargets,
 	extractEmojiName,
-} from "../src/emoji/build-download-targets.js";
-import { listEmojiEntries } from "../src/services/filesystem/emoji-inventory.js";
-import { downloadImage } from "../src/services/slackmojis/download-image.js";
-import { fetchAllEmojis } from "../src/services/slackmojis/fetch-all-emojis.js";
-import { fetchPage } from "../src/services/slackmojis/fetch-page.js";
+} from "../dist/emoji/build-download-targets.js";
+import { listEmojiEntries } from "../dist/services/filesystem/emoji-inventory.js";
+import { downloadImage } from "../dist/services/slackmojis/download-image.js";
+import { fetchAllEmojis } from "../dist/services/slackmojis/fetch-all-emojis.js";
+import { fetchPage } from "../dist/services/slackmojis/fetch-page.js";
+import type { SlackmojiEntry } from "../src/types/slackmoji.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..");
@@ -24,7 +25,7 @@ const tempDir = path.join(projectRoot, "temp");
 const downloadDir = path.join(tempDir, "download");
 const generateDir = path.join(tempDir, "generate");
 
-const sampleEmojiPages = {
+const sampleEmojiPages: Record<number, SlackmojiEntry[]> = {
 	0: [
 		{
 			id: 1,
@@ -32,14 +33,14 @@ const sampleEmojiPages = {
 			image_url:
 				"https://emojis.slackmojis.com/emojis/images/0000000001/party_parrot.gif",
 			category: { id: 1, name: "Party Parrot" },
-		},
+		} as SlackmojiEntry,
 		{
 			id: 2,
 			name: "blob_dance",
 			image_url:
 				"https://emojis.slackmojis.com/emojis/images/0000000002/blob_dance.gif",
 			category: { id: 2, name: "Hangouts Blob" },
-		},
+		} as SlackmojiEntry,
 	],
 	1: [
 		{
@@ -48,19 +49,19 @@ const sampleEmojiPages = {
 			image_url:
 				"https://emojis.slackmojis.com/emojis/images/0000000003/dealwithit.gif",
 			category: { id: 3, name: "Meme" },
-		},
+		} as SlackmojiEntry,
 	],
 };
 
-const stubEmojiPage = (page) => {
-	const payload = sampleEmojiPages[page] || [];
+const stubEmojiPage = (page: number): void => {
+	const payload = sampleEmojiPages[page] ?? [];
 	nock("https://slackmojis.com")
 		.get("/emojis.json")
 		.query({ page: String(page) })
 		.reply(200, payload);
 };
 
-const stubEmojiDownload = (emoji) => {
+const stubEmojiDownload = (emoji: SlackmojiEntry): void => {
 	const { origin, pathname } = new URL(emoji.image_url);
 	nock(origin).get(pathname).reply(200, "gifdata", {
 		"Content-Type": "image/gif",
@@ -102,14 +103,18 @@ test("downloads emojis", async (t) => {
 	t.is(listEmojiEntries(downloadDir).length === 1, true);
 });
 
-test("loads existing emojis", async (t) => {
+test("loads existing emojis", (t) => {
 	const range = [...Array(10).keys()];
 	const extensions = [".jpg", ".png", ".gif"];
 
 	// Generate 10 media files
 	range.forEach((number) => {
-		const extension = extensions[Math.floor(Math.random() * 3)];
-		fs.openSync(path.join(generateDir, number + extension), "w");
+		const extension = extensions[Math.floor(Math.random() * 3)] ?? ".gif";
+		const descriptor = fs.openSync(
+			path.join(generateDir, `${number}${extension}`),
+			"w",
+		);
+		fs.closeSync(descriptor);
 	});
 
 	const existing = listEmojiEntries(generateDir);

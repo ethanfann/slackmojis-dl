@@ -1,11 +1,52 @@
 import React from "react";
+import type { EmojiPipelineEvent } from "../pipeline/emoji-pipeline.js";
 import {
 	createEmojiPipeline,
 	DEFAULT_DOWNLOAD_CONCURRENCY,
 	DEFAULT_PAGE_CONCURRENCY,
 } from "../pipeline/emoji-pipeline.js";
 
-const initialState = {
+type DownloaderStatus =
+	| "idle"
+	| "determining-last-page"
+	| "fetching"
+	| "complete"
+	| "error";
+
+type LogEntry = {
+	id: number;
+	key?: string;
+	type: "success" | "error";
+	sequence: number;
+	title: string;
+};
+
+type DownloaderState = {
+	status: DownloaderStatus;
+	lastPage: number | null;
+	pageTotal: number | null;
+	logSequence: number;
+	expectedTotal: number | null;
+	existingCount: number;
+	pageStatus: {
+		fetched: number;
+		current: number;
+		active: number;
+		queued: number;
+	};
+	downloadStats: {
+		active: number;
+		pending: number;
+	};
+	totalEmojis: number;
+	downloads: LogEntry[];
+	errors: LogEntry[];
+	elapsedSeconds: number;
+	completed: boolean;
+	failure: unknown;
+};
+
+const initialState: DownloaderState = {
 	status: "idle",
 	lastPage: null,
 	pageTotal: null,
@@ -30,15 +71,18 @@ const initialState = {
 	failure: null,
 };
 
-const describeError = (error) => {
+const describeError = (error: unknown): string => {
 	if (!error) return "Unknown error";
-	return error.message || String(error);
+	return (error as { message?: string }).message || String(error);
 };
 
-const applyEvent = (state, event) => {
+const applyEvent = (
+	state: DownloaderState,
+	event: EmojiPipelineEvent,
+): DownloaderState => {
 	switch (event.type) {
 		case "status": {
-			const status =
+			const status: DownloaderStatus =
 				event.stage === "determine-last-page"
 					? "determining-last-page"
 					: event.stage === "fetching"
@@ -193,14 +237,22 @@ const applyEvent = (state, event) => {
 	}
 };
 
+type EmojiDownloaderOptions = {
+	dest: string;
+	limit?: number | null;
+	category?: string | null;
+	pageConcurrency?: number | null;
+	downloadConcurrency?: number | null;
+};
+
 const useEmojiDownloader = ({
 	dest,
 	limit,
 	category,
 	pageConcurrency,
 	downloadConcurrency,
-}) => {
-	const [state, setState] = React.useState(initialState);
+}: EmojiDownloaderOptions): DownloaderState => {
+	const [state, setState] = React.useState<DownloaderState>(initialState);
 
 	React.useEffect(() => {
 		let cancelled = false;
@@ -225,7 +277,7 @@ const useEmojiDownloader = ({
 			},
 		});
 
-		pipeline.start().catch((error) => {
+		pipeline.start().catch((error: unknown) => {
 			if (cancelled) {
 				return;
 			}
@@ -242,3 +294,4 @@ const useEmojiDownloader = ({
 };
 
 export { useEmojiDownloader, initialState };
+export type { DownloaderState };
