@@ -7,7 +7,6 @@ import {
 	fetchAllEmojis,
 	resolveLastPageHint,
 } from "./services/slackmojis/index.js";
-import { enterFullscreen } from "./lib/terminal/full-screen.js";
 
 const meowCli = meow.default ?? meow;
 
@@ -82,12 +81,10 @@ const run = async () => {
 		return;
 	}
 
-	const pageConcurrency =
-		numberFlag(cli.flags.pageConcurrency) ?? undefined;
+	const pageConcurrency = numberFlag(cli.flags.pageConcurrency) ?? undefined;
 	const downloadConcurrency =
 		numberFlag(cli.flags.downloadConcurrency) ?? undefined;
 
-	const fullscreenCleanup = enterFullscreen(process.stdout);
 	let exitSummary = null;
 	const captureSummary = (summary) => {
 		if (typeof summary === "string" && summary.trim().length > 0) {
@@ -101,7 +98,6 @@ const run = async () => {
 				...cli.flags,
 				pageConcurrency,
 				downloadConcurrency,
-				stdout: process.stdout,
 				ink: inkModule,
 				inkUi: inkUiModule,
 				inkUiTheme,
@@ -117,7 +113,6 @@ const run = async () => {
 			app.cleanup();
 		}
 	} finally {
-		fullscreenCleanup();
 		if (process.stdout.isTTY) {
 			console.log();
 		}

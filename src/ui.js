@@ -1,6 +1,5 @@
 import React from "react";
 import { useEmojiDownloader } from "./hooks/use-emoji-downloader.js";
-import { useTerminalDimensions } from "./hooks/use-terminal-dimensions.js";
 
 const h = React.createElement;
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -19,52 +18,6 @@ const Spinner = () => {
 	}, []);
 
 	return spinnerFrames[index];
-};
-
-const BoundedLog = ({ entries, limit, width, ink }) => {
-	const { Box, Text } = ink;
-	const total = entries.length;
-	const normalizedLimit =
-		Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : total || 1;
-	const visibleLimit = Math.max(normalizedLimit, 1);
-	const startIndex = Math.max(total - visibleLimit, 0);
-	const visibleEntries = entries.slice(startIndex);
-	const containerProps = {
-		flexDirection: "column",
-		justifyContent: "flex-end",
-	};
-
-	if (Number.isFinite(width) && width > 0) {
-		containerProps.width = Math.floor(width);
-	}
-
-	return h(
-		Box,
-		containerProps,
-		visibleEntries.map((entry, index) => {
-			const position = startIndex + index;
-
-			const color =
-				entry.type === "error"
-					? "red"
-					: entry.type === "warning"
-						? "yellow"
-						: "green";
-
-			const derivedKey = entry.key
-				? `entry-${entry.key}-${position}`
-				: `entry-${entry.sequence ?? position}-${position}`;
-
-			return h(
-				Text,
-				{
-					key: derivedKey,
-					color,
-				},
-				entry.title,
-			);
-		}),
-	);
 };
 
 const numberFormatter = new Intl.NumberFormat("en-US");
@@ -160,7 +113,6 @@ const App = ({
 	category: categoryName = null,
 	pageConcurrency = null,
 	downloadConcurrency = null,
-	stdout = process.stdout,
 	ink = null,
 	inkUi = null,
 	inkUiTheme = null,
@@ -170,24 +122,8 @@ const App = ({
 		throw new Error("Ink components are required");
 	}
 
-	const { Text, Box } = ink;
-	const { columns, rows } = useTerminalDimensions(stdout);
+	const { Text, Box, Static } = ink;
 
-	const resolvedColumns = columns ?? stdout?.columns ?? process.stdout?.columns;
-	const resolvedRows = rows ?? stdout?.rows ?? process.stdout?.rows;
-
-	const reservedRows = 2; // approximate rows reserved for status
-	const logLimit =
-		Number.isFinite(resolvedRows) && resolvedRows > reservedRows
-			? resolvedRows - reservedRows
-			: undefined;
-	const visibleLogLimit =
-		Number.isFinite(logLimit) && logLimit > 0
-			? Math.max(Math.min(Math.floor(logLimit), 40), 6)
-			: 20;
-	const viewportWidth = Number.isFinite(resolvedColumns)
-		? resolvedColumns
-		: undefined;
 	const {
 		status,
 		lastPage,
@@ -336,7 +272,7 @@ const App = ({
 		return h(
 			Text,
 			null,
-			h(Text, { color: "green" }, h(Spinner, { type: "dots" })),
+			h(Text, { color: "green" }, h(Spinner)),
 			" Determining Last Page Of Emojis",
 		);
 	}
@@ -360,7 +296,7 @@ const App = ({
 			return h(
 				Text,
 				null,
-				h(Text, { color: "green" }, h(Spinner, { type: "dots" })),
+				h(Text, { color: "green" }, h(Spinner)),
 				` Determining where to resume (${formatCount(existingCount)} existing)`,
 			);
 		}
@@ -369,12 +305,7 @@ const App = ({
 			pageCount === "?"
 				? " Requesting Emoji Listing"
 				: ` Requesting Emoji Listing For ${pageCount} Pages`;
-		return h(
-			Text,
-			null,
-			h(Text, { color: "green" }, h(Spinner, { type: "dots" })),
-			requestLabel,
-		);
+		return h(Text, null, h(Text, { color: "green" }, h(Spinner)), requestLabel);
 	}
 
 	if (totalEmojis === 0 && completed) {
@@ -420,16 +351,12 @@ const App = ({
 
 	const statusLine = statusSegments.join(" | ");
 
-	const progressBarWidth = viewportWidth
-		? Math.max(Math.min(Math.floor(viewportWidth * 0.6), 60), 10)
-		: 40;
+	const progressBarWidth = 40;
 	const progressPercentLabel =
 		progressRatio !== null ? `${Math.round(progressRatio * 100)}%` : null;
 
-	const showProgressBar = progressRatio !== null;
-
 	let progressBarLine = null;
-	if (showProgressBar && progressRatio !== null) {
+	if (progressRatio !== null) {
 		const segments = [
 			renderProgressBar({
 				ratio: progressRatio,
@@ -468,16 +395,40 @@ const App = ({
 		);
 	}
 
+	const logSection =
+		logEntries.length > 0
+			? h(Static, { items: logEntries }, (entry, index) => {
+					const color =
+						entry.type === "error"
+							? "red"
+							: entry.type === "warning"
+								? "yellow"
+								: "green";
+					const derivedKey =
+						entry.key ??
+						(entry.sequence !== undefined
+							? `entry-${entry.sequence}`
+							: `entry-${index}`);
+
+					return h(
+						Box,
+						{ key: derivedKey },
+						h(Text, { color }, entry.title ?? ""),
+					);
+				})
+			: null;
+
+	const statusMarginTop = logSection ? 1 : 0;
+
 	return h(
 		Box,
-		{ flexDirection: "column", width: "100%" },
-		h(BoundedLog, {
-			entries: logEntries,
-			limit: visibleLogLimit,
-			width: viewportWidth,
-			ink,
-		}),
-		h(Box, { marginTop: 1 }, h(Text, { dimColor: true }, statusLine)),
+		{ flexDirection: "column" },
+		logSection,
+		h(
+			Box,
+			{ marginTop: statusMarginTop },
+			h(Text, { dimColor: true }, statusLine),
+		),
 		progressBarLine,
 	);
 };
