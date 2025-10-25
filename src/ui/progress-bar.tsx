@@ -24,7 +24,7 @@ const styles = {
 		minWidth: 0,
 	}),
 	completed: (): TextProps => ({
-		color: "magenta",
+		color: "green",
 	}),
 	remaining: (): TextProps => ({
 		dimColor: true,
