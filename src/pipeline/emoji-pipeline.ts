@@ -8,6 +8,10 @@ import {
 import { createTaskQueue, type QueueStats } from "../lib/task-queue.js";
 import { listEmojiEntries } from "../services/filesystem/emoji-inventory.js";
 import {
+	readRunMetadata,
+	writeRunMetadata,
+} from "../services/filesystem/run-metadata.js";
+import {
 	downloadImage,
 	fetchPage,
 	findLastPage,
@@ -18,10 +22,16 @@ import type { SlackmojiEntry } from "../types/slackmoji.js";
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
 const DEFAULT_PAGE_CONCURRENCY = 12;
-const PAGE_SIZE = 500;
-
 const normalizeKey = (category: string, name: string): string =>
 	path.join(category, name);
+
+const parseLastPageIndex = (value: unknown): number | null => {
+	if (Number.isFinite(value) && (value as number) >= 0) {
+		return Math.floor(value as number);
+	}
+
+	return null;
+};
 
 const buildFileName = (originalName: string, attempt: number): string => {
 	if (attempt === 0) {
@@ -122,9 +132,16 @@ const createEmojiPipeline = ({
 			return;
 		}
 
+		let storedLastPageIndex: number | null = null;
+		try {
+			const metadata = await readRunMetadata(outputDir);
+			storedLastPageIndex = parseLastPageIndex(metadata?.lastPage);
+		} catch (error) {
+			console.error(`Failed to read metadata: ${formatErrorMessage(error)}`);
+		}
+
 		const limitProvided = limit !== undefined && limit !== null;
 		let maxPages: number | null = null;
-		let lastPageHint: number | null = null;
 
 		if (limitProvided) {
 			const parsedLimit = Number(limit);
@@ -141,56 +158,88 @@ const createEmojiPipeline = ({
 
 		emit({ type: "status", stage: "determine-last-page" });
 
-		if (maxPages === null) {
-			try {
-				lastPageHint = await resolveLastPageHint();
-			} catch {
-				lastPageHint = null;
+		let knownTotal: number | null = maxPages;
+		if (knownTotal !== null) {
+			emit({ type: "page-total", total: knownTotal });
+		}
+
+		const pageResultsCache = new Map<number, SlackmojiEntry[]>();
+		const inFlightPages = new Map<number, Promise<SlackmojiEntry[]>>();
+		const fetchPageAndCache = (
+			pageIndex: number,
+		): Promise<SlackmojiEntry[]> => {
+			if (pageResultsCache.has(pageIndex)) {
+				return Promise.resolve(pageResultsCache.get(pageIndex) ?? []);
 			}
-		}
 
-		const floorIndex = Math.max(
-			Number.isFinite(lastPageHint) && (lastPageHint as number) >= 0
-				? Math.floor(lastPageHint as number)
-				: MIN_LAST_PAGE_INDEX,
-			MIN_LAST_PAGE_INDEX,
-		);
+			if (inFlightPages.has(pageIndex)) {
+				return inFlightPages.get(pageIndex) ?? Promise.resolve([]);
+			}
 
-		let lastPageIndex: number;
-		let lastPageResults: SlackmojiEntry[];
+			const task = fetchPage(pageIndex)
+				.then((results) => (Array.isArray(results) ? results : []))
+				.then((normalized) => {
+					pageResultsCache.set(pageIndex, normalized);
+					return normalized;
+				})
+				.finally(() => {
+					inFlightPages.delete(pageIndex);
+				});
 
-		if (maxPages !== null) {
-			lastPageIndex = Math.max(maxPages - 1, 0);
-			lastPageResults = await fetchPage(lastPageIndex);
-		} else {
-			lastPageIndex = await findLastPage({ floor: floorIndex });
-			lastPageResults = await fetchPage(lastPageIndex);
-		}
+			inFlightPages.set(pageIndex, task);
+			return task;
+		};
 
-		if (signal.aborted) {
-			return;
-		}
-
-		const normalizedLastPageResults = Array.isArray(lastPageResults)
-			? lastPageResults
-			: [];
-		const totalPages = maxPages !== null ? maxPages : lastPageIndex + 1;
-		emit({ type: "page-total", total: totalPages });
-		emit({ type: "meta", lastPage: lastPageIndex });
-
-		const expectedDownloads =
-			(totalPages > 1 ? (totalPages - 1) * PAGE_SIZE : 0) +
-			normalizedLastPageResults.length;
-		emit({ type: "expected-total", count: expectedDownloads });
-
-		const prefetchedPages = new Map<number, SlackmojiEntry[]>();
-		prefetchedPages.set(lastPageIndex, normalizedLastPageResults);
-		let dynamicExpected = expectedDownloads;
 		let scheduledDownloadTotal = 0;
+		let finalLastPageIndex: number | null = null;
+
+		const remoteHintPromise =
+			maxPages === null
+				? resolveLastPageHint().catch(() => null)
+				: Promise.resolve<number | null>(null);
+
+		const lastPageProbePromise = (async (): Promise<void> => {
+			try {
+				let targetIndex: number;
+				if (maxPages !== null) {
+					targetIndex = Math.max(maxPages - 1, 0);
+				} else {
+					const remoteHint = await remoteHintPromise;
+					const combinedHint = Math.max(
+						MIN_LAST_PAGE_INDEX,
+						storedLastPageIndex ?? MIN_LAST_PAGE_INDEX,
+						remoteHint ?? MIN_LAST_PAGE_INDEX,
+					);
+					targetIndex = await findLastPage({ floor: combinedHint });
+				}
+
+				const _results = await fetchPageAndCache(targetIndex);
+				if (signal.aborted) {
+					return;
+				}
+
+				finalLastPageIndex = targetIndex;
+				const totalPages = targetIndex + 1;
+
+				if (knownTotal === null || knownTotal < totalPages) {
+					knownTotal = totalPages;
+					emit({ type: "page-total", total: totalPages });
+				}
+
+				emit({ type: "meta", lastPage: targetIndex });
+			} catch (error) {
+				if (signal.aborted) {
+					return;
+				}
+
+				console.error(
+					`Unable to determine last page: ${formatErrorMessage(error)}`,
+				);
+			}
+		})();
 
 		const existingEntries = listEmojiEntries(outputDir);
 		const existingSet = new Set(existingEntries);
-		const scheduledKeys = new Set(existingEntries);
 		const reservedKeys = new Set<string>();
 
 		emit({ type: "existing-entries", count: existingEntries.length });
@@ -347,7 +396,6 @@ const createEmojiPipeline = ({
 		let fetchedPages = 0;
 		let nextPageIndex = 0;
 		let endReached = false;
-		let knownTotal: number | null = totalPages;
 
 		const updatePageTotal = (candidate: number) => {
 			if (!Number.isFinite(candidate) || candidate < 0) {
@@ -364,13 +412,9 @@ const createEmojiPipeline = ({
 		const getPageResults = async (
 			pageIndex: number,
 		): Promise<SlackmojiEntry[]> => {
-			if (prefetchedPages.has(pageIndex)) {
-				const results = prefetchedPages.get(pageIndex) ?? [];
-				prefetchedPages.delete(pageIndex);
-				return results;
-			}
-
-			return fetchPage(pageIndex);
+			const results = await fetchPageAndCache(pageIndex);
+			pageResultsCache.delete(pageIndex);
+			return results;
 		};
 
 		const schedulePageFetch = () => {
@@ -411,6 +455,9 @@ const createEmojiPipeline = ({
 
 					if (normalizedResults.length === 0) {
 						endReached = true;
+						if (pageIndex > 0) {
+							finalLastPageIndex = pageIndex - 1;
+						}
 						updatePageTotal(pageIndex);
 						return;
 					}
@@ -424,11 +471,10 @@ const createEmojiPipeline = ({
 
 					for (const emoji of prepared) {
 						const key = normalizeKey(emoji.category, emoji.name);
-						if (existingSet.has(key) || scheduledKeys.has(key)) {
+						if (existingSet.has(key)) {
 							continue;
 						}
 
-						scheduledKeys.add(key);
 						newDownloads.push(emoji);
 					}
 
@@ -443,18 +489,6 @@ const createEmojiPipeline = ({
 					});
 
 					scheduledDownloadTotal += newDownloads.length;
-					const expectedForPage =
-						knownTotal !== null && pageIndex === knownTotal - 1
-							? normalizedLastPageResults.length
-							: PAGE_SIZE;
-					const prevExpected = dynamicExpected;
-					dynamicExpected = Math.max(
-						dynamicExpected + (newDownloads.length - expectedForPage),
-						scheduledDownloadTotal,
-					);
-					if (dynamicExpected !== prevExpected) {
-						emit({ type: "expected-total", count: dynamicExpected });
-					}
 
 					fetchedPages += 1;
 
@@ -500,8 +534,23 @@ const createEmojiPipeline = ({
 			emit({ type: "page-total", total: fetchedPages });
 		}
 
+		if (!signal.aborted) {
+			emit({ type: "expected-total", count: scheduledDownloadTotal });
+		}
+
 		await downloadQueue.drain();
 		await Promise.allSettled(downloadTasks);
+		await lastPageProbePromise;
+
+		if (!signal.aborted && finalLastPageIndex !== null) {
+			try {
+				await writeRunMetadata(outputDir, {
+					lastPage: finalLastPageIndex,
+				});
+			} catch (error) {
+				console.error(`Failed to write metadata: ${formatErrorMessage(error)}`);
+			}
+		}
 
 		if (!signal.aborted) {
 			emit({ type: "status", stage: "complete" });

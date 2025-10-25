@@ -286,8 +286,9 @@ const App: FC<AppProps> = ({
 			? existingCount + (expectedTotal ?? totalEmojis ?? 0)
 			: null;
 
+	const pagesQueued = totalKnown !== null && pageStatus.fetched >= totalKnown;
 	const progressRatio =
-		progressTarget && progressTarget > 0
+		pagesQueued && progressTarget && progressTarget > 0
 			? Math.min(Math.max(progressCount / progressTarget, 0), 1)
 			: null;
 
@@ -296,6 +297,7 @@ const App: FC<AppProps> = ({
 			? Math.max(downloadsTarget - downloadCount, 0)
 			: null;
 	const etaSeconds =
+		pagesQueued &&
 		remainingDownloads !== null &&
 		remainingDownloads > 0 &&
 		rawDownloadsPerSecond > 0
