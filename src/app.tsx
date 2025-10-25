@@ -324,7 +324,7 @@ const App: FC<AppProps> = ({
 	const progressPercentLabel =
 		progressRatio !== null ? `${Math.round(progressRatio * 100)}%` : null;
 
-	let progressBarLine = null;
+	let progressBarLine: React.ReactElement | null = null;
 	if (progressRatio !== null) {
 		const segments = [
 			renderProgressBar({
@@ -361,7 +361,7 @@ const App: FC<AppProps> = ({
 		);
 	}
 
-		const logSection =
+	const logSection =
 		logEntries.length > 0
 			? h(Static, {
 					items: logEntries,
