@@ -5,7 +5,14 @@ import {
 	buildDownloadTargets,
 	type DownloadTarget,
 } from "../emoji/build-download-targets.js";
-import { createTaskQueue, type QueueStats } from "../lib/task-queue.js";
+import {
+	createTaskQueue,
+	type QueueStats,
+} from "../lib/task-queue.js";
+import {
+	createAdaptiveConcurrencyController,
+	type AdaptiveConcurrencyController,
+} from "../lib/adaptive-concurrency.js";
 import { listEmojiEntries } from "../services/filesystem/emoji-inventory.js";
 import {
 	readRunMetadata,
@@ -22,6 +29,36 @@ import type { SlackmojiEntry } from "../types/slackmoji.js";
 
 const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
 const DEFAULT_PAGE_CONCURRENCY = 12;
+const DOWNLOAD_ADAPTIVE_CONFIG = {
+	min: 50,
+	max: 400,
+	increaseStep: 25,
+	decreaseStep: 40,
+	decreaseRatio: 0.85,
+	lowLatencyMs: 400,
+	highLatencyMs: 1500,
+	maxErrorRateForIncrease: 0.05,
+	highErrorRateForDecrease: 0.15,
+	pendingPressure: 5,
+	sampleWindow: 30,
+	minSamples: 6,
+	cooldownMs: 1500,
+} as const;
+const PAGE_ADAPTIVE_CONFIG = {
+	min: 6,
+	max: 40,
+	increaseStep: 2,
+	decreaseStep: 2,
+	decreaseRatio: 0.8,
+	lowLatencyMs: 250,
+	highLatencyMs: 900,
+	maxErrorRateForIncrease: 0.1,
+	highErrorRateForDecrease: 0.2,
+	pendingPressure: 1,
+	sampleWindow: 20,
+	minSamples: 5,
+	cooldownMs: 1200,
+} as const;
 const normalizeKey = (category: string, name: string): string =>
 	path.join(category, name);
 
@@ -108,8 +145,8 @@ const createEmojiPipeline = ({
 	limit,
 	category,
 	onEvent,
-	downloadConcurrency = DEFAULT_DOWNLOAD_CONCURRENCY,
-	pageConcurrency = DEFAULT_PAGE_CONCURRENCY,
+	downloadConcurrency,
+	pageConcurrency,
 }: EmojiPipelineOptions): EmojiPipeline => {
 	const abortController = new AbortController();
 	const { signal } = abortController;
@@ -298,11 +335,37 @@ const createEmojiPipeline = ({
 			DEFAULT_DOWNLOAD_CONCURRENCY,
 		);
 
+		const adaptiveDownloadsEnabled = downloadConcurrency === undefined;
+		let downloadAdaptive: AdaptiveConcurrencyController | null = null;
+
 		const downloadQueue = createTaskQueue<void>(downloadConcurrencyValue, {
 			onStatsChange: (stats) => {
+				downloadAdaptive?.observeStats(stats);
 				emit({ type: "download-stats", stats });
 			},
 		});
+
+		if (adaptiveDownloadsEnabled) {
+			downloadAdaptive = createAdaptiveConcurrencyController({
+				queue: downloadQueue,
+				initial: downloadConcurrencyValue,
+				min: DOWNLOAD_ADAPTIVE_CONFIG.min,
+				max: DOWNLOAD_ADAPTIVE_CONFIG.max,
+				increaseStep: DOWNLOAD_ADAPTIVE_CONFIG.increaseStep,
+				decreaseStep: DOWNLOAD_ADAPTIVE_CONFIG.decreaseStep,
+				decreaseRatio: DOWNLOAD_ADAPTIVE_CONFIG.decreaseRatio,
+				lowLatencyMs: DOWNLOAD_ADAPTIVE_CONFIG.lowLatencyMs,
+				highLatencyMs: DOWNLOAD_ADAPTIVE_CONFIG.highLatencyMs,
+				maxErrorRateForIncrease:
+					DOWNLOAD_ADAPTIVE_CONFIG.maxErrorRateForIncrease,
+				highErrorRateForDecrease:
+					DOWNLOAD_ADAPTIVE_CONFIG.highErrorRateForDecrease,
+				pendingPressure: DOWNLOAD_ADAPTIVE_CONFIG.pendingPressure,
+				sampleWindow: DOWNLOAD_ADAPTIVE_CONFIG.sampleWindow,
+				minSamples: DOWNLOAD_ADAPTIVE_CONFIG.minSamples,
+				cooldownMs: DOWNLOAD_ADAPTIVE_CONFIG.cooldownMs,
+			});
+		}
 
 		const downloadTasks: Promise<void>[] = [];
 
@@ -326,13 +389,21 @@ const createEmojiPipeline = ({
 						return;
 					}
 
+					let transferStartedAt: number | null = null;
 					try {
+						transferStartedAt = performance.now();
 						await downloadImage(emoji.url, destination.fullPath, {
 							maxRetries: 2,
 						});
 
 						if (signal.aborted) {
 							return;
+						}
+
+						if (downloadAdaptive && transferStartedAt !== null) {
+							downloadAdaptive.recordSuccess(
+								performance.now() - transferStartedAt,
+							);
 						}
 
 						existingSet.add(destination.eventKey);
@@ -346,6 +417,14 @@ const createEmojiPipeline = ({
 							},
 						});
 					} catch (error) {
+						if (downloadAdaptive) {
+							const duration =
+								transferStartedAt !== null
+									? performance.now() - transferStartedAt
+									: 0;
+							downloadAdaptive.recordFailure(duration);
+						}
+
 						reservedKeys.delete(destination.eventKey);
 
 						if (signal.aborted) {
@@ -387,8 +466,12 @@ const createEmojiPipeline = ({
 			DEFAULT_PAGE_CONCURRENCY,
 		);
 
+		const adaptivePagesEnabled = pageConcurrency === undefined;
+		let pageAdaptive: AdaptiveConcurrencyController | null = null;
+
 		const pageQueue = createTaskQueue<void>(pageConcurrencyValue, {
 			onStatsChange: (stats) => {
+				pageAdaptive?.observeStats(stats);
 				emit({ type: "page-stats", stats });
 			},
 		});
@@ -396,6 +479,7 @@ const createEmojiPipeline = ({
 		let fetchedPages = 0;
 		let nextPageIndex = 0;
 		let endReached = false;
+		let pageWorkersInFlight = 0;
 
 		const updatePageTotal = (candidate: number) => {
 			if (!Number.isFinite(candidate) || candidate < 0) {
@@ -417,17 +501,26 @@ const createEmojiPipeline = ({
 			return results;
 		};
 
-		const schedulePageFetch = () => {
+		const canScheduleMorePages = (): boolean => {
 			if (signal.aborted || endReached) {
-				return;
+				return false;
 			}
 
 			if (knownTotal !== null && nextPageIndex >= knownTotal) {
-				return;
+				return false;
+			}
+
+			return true;
+		};
+
+		function schedulePageFetch(): boolean {
+			if (!canScheduleMorePages()) {
+				return false;
 			}
 
 			const pageIndex = nextPageIndex;
 			nextPageIndex += 1;
+			pageWorkersInFlight += 1;
 
 			pageQueue
 				.push(async () => {
@@ -443,65 +536,89 @@ const createEmojiPipeline = ({
 						},
 					});
 
-					const pageResults = await getPageResults(pageIndex);
+					const fetchStartedAt = performance.now();
 
-					if (signal.aborted) {
-						return;
-					}
+					try {
+						const pageResults = await getPageResults(pageIndex);
 
-					const normalizedResults = Array.isArray(pageResults)
-						? pageResults
-						: [];
-
-					if (normalizedResults.length === 0) {
-						endReached = true;
-						if (pageIndex > 0) {
-							finalLastPageIndex = pageIndex - 1;
-						}
-						updatePageTotal(pageIndex);
-						return;
-					}
-
-					const prepared = buildDownloadTargets(
-						normalizedResults,
-						category,
-						outputDir,
-					);
-					const newDownloads: DownloadTarget[] = [];
-
-					for (const emoji of prepared) {
-						const key = normalizeKey(emoji.category, emoji.name);
-						if (existingSet.has(key)) {
-							continue;
+						if (signal.aborted) {
+							return;
 						}
 
-						newDownloads.push(emoji);
-					}
+						if (pageAdaptive) {
+							pageAdaptive.recordSuccess(performance.now() - fetchStartedAt);
+						}
 
-					if (newDownloads.length > 0) {
-						emit({ type: "downloads-scheduled", count: newDownloads.length });
-					}
+						const normalizedResults = Array.isArray(pageResults)
+							? pageResults
+							: [];
 
-					newDownloads.forEach((emoji) => {
+						if (normalizedResults.length === 0) {
+							endReached = true;
+							if (pageIndex > 0) {
+								finalLastPageIndex = pageIndex - 1;
+							}
+							updatePageTotal(pageIndex);
+							return;
+						}
+
+						const prepared = buildDownloadTargets(
+							normalizedResults,
+							category,
+							outputDir,
+						);
+						const newDownloads: DownloadTarget[] = [];
+
+						for (const emoji of prepared) {
+							const key = normalizeKey(emoji.category, emoji.name);
+							if (existingSet.has(key)) {
+								continue;
+							}
+
+							newDownloads.push(emoji);
+						}
+
+						if (newDownloads.length > 0) {
+							emit({
+								type: "downloads-scheduled",
+								count: newDownloads.length,
+							});
+						}
+
+						newDownloads.forEach((emoji) => {
+							if (!signal.aborted) {
+								scheduleDownload(emoji);
+							}
+						});
+
+						scheduledDownloadTotal += newDownloads.length;
+
+						fetchedPages += 1;
+
+						emit({
+							type: "page-progress",
+							progress: {
+								fetched: fetchedPages,
+								current: pageIndex + 1,
+							},
+						});
+					} catch (error) {
+						if (signal.aborted) {
+							return;
+						}
+
+						if (pageAdaptive) {
+							pageAdaptive.recordFailure(performance.now() - fetchStartedAt);
+						}
+
+						const message = formatErrorMessage(error);
+						console.error(`Failed to fetch page ${pageIndex}: ${message}`);
+						emit({ type: "error", error });
+					} finally {
+						pageWorkersInFlight -= 1;
 						if (!signal.aborted) {
-							scheduleDownload(emoji);
+							fillPageWorkers();
 						}
-					});
-
-					scheduledDownloadTotal += newDownloads.length;
-
-					fetchedPages += 1;
-
-					emit({
-						type: "page-progress",
-						progress: {
-							fetched: fetchedPages,
-							current: pageIndex + 1,
-						},
-					});
-
-					if (!signal.aborted) {
-						schedulePageFetch();
 					}
 				})
 				.catch((error) => {
@@ -513,20 +630,49 @@ const createEmojiPipeline = ({
 					console.error(`Failed to fetch page ${pageIndex}: ${message}`);
 					emit({ type: "error", error });
 				});
-		};
 
-		const initialWorkers =
-			knownTotal !== null
-				? Math.min(pageConcurrencyValue, knownTotal)
-				: pageConcurrencyValue;
-
-		for (let index = 0; index < initialWorkers; index += 1) {
-			if (signal.aborted) {
-				break;
-			}
-
-			schedulePageFetch();
+			return true;
 		}
+
+		function fillPageWorkers(): void {
+			while (
+				pageWorkersInFlight < pageQueue.getConcurrency() &&
+				canScheduleMorePages()
+			) {
+				if (!schedulePageFetch()) {
+					break;
+				}
+			}
+		}
+
+		if (adaptivePagesEnabled) {
+			pageAdaptive = createAdaptiveConcurrencyController({
+				queue: pageQueue,
+				initial: pageConcurrencyValue,
+				min: PAGE_ADAPTIVE_CONFIG.min,
+				max: PAGE_ADAPTIVE_CONFIG.max,
+				increaseStep: PAGE_ADAPTIVE_CONFIG.increaseStep,
+				decreaseStep: PAGE_ADAPTIVE_CONFIG.decreaseStep,
+				decreaseRatio: PAGE_ADAPTIVE_CONFIG.decreaseRatio,
+				lowLatencyMs: PAGE_ADAPTIVE_CONFIG.lowLatencyMs,
+				highLatencyMs: PAGE_ADAPTIVE_CONFIG.highLatencyMs,
+				maxErrorRateForIncrease:
+					PAGE_ADAPTIVE_CONFIG.maxErrorRateForIncrease,
+				highErrorRateForDecrease:
+					PAGE_ADAPTIVE_CONFIG.highErrorRateForDecrease,
+				pendingPressure: PAGE_ADAPTIVE_CONFIG.pendingPressure,
+				sampleWindow: PAGE_ADAPTIVE_CONFIG.sampleWindow,
+				minSamples: PAGE_ADAPTIVE_CONFIG.minSamples,
+				cooldownMs: PAGE_ADAPTIVE_CONFIG.cooldownMs,
+				onLimitChange: () => {
+					if (!signal.aborted) {
+						fillPageWorkers();
+					}
+				},
+			});
+		}
+
+		fillPageWorkers();
 
 		await pageQueue.drain();
 
