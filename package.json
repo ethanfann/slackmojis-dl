@@ -15,9 +15,13 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
-		"update:last-page": "node scripts/update-last-page.js",
-		"prepublishOnly": "npm run build"
+		"update:metadata": "tsx scripts/update-slackmojis-metadata.ts",
+		"prepublishOnly": "npm run build && npm run update:metadata"
 	},
+	"files": [
+		"dist",
+		"data"
+	],
 	"ava": {
 		"files": [
 			"test/**/*.test.ts"

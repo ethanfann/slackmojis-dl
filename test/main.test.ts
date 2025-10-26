@@ -203,48 +203,20 @@ test.serial(
 	},
 );
 
-test("valid categories mirror disk layout", (t) => {
-	const expectedCategories = [
-		"Among Us",
-		"Blob Cats",
-		"Cat Emojis",
-		"Cowboy Emojis",
-		"Dancing Bananas",
-		"Facebook Reaction",
-		"Game of Thrones",
-		"Hangouts Blob",
-		"HD Emojis",
-		"Jelles Marble Run Teams",
-		"Logo",
-		"Maybe Finance",
-		"Meme",
-		"Microsoft Teams",
-		"MLB",
-		"MLS",
-		"NBA",
-		"NFL",
-		"NHL",
-		"NYC Subway",
-		"Party Parrot",
-		"Piggies",
-		"Pokemon",
-		"Random",
-		"Regional Indicator",
-		"Retro Game",
-		"Scrabble Letters",
-		"Skype",
-		"Star Wars",
-		"Turntable.fm",
-		"Twitch Global",
-		"Yahoo Games",
-		"Yoyo",
-	];
+test("valid categories mirror bundled metadata", (t) => {
+	const metadataPath = path.join(projectRoot, "data", "slackmojis-metadata.json");
+	const raw = JSON.parse(
+		fs.readFileSync(metadataPath, "utf8"),
+	) as { categories?: string[] };
+	const expectedCategories = Array.isArray(raw.categories) ? raw.categories : [];
 
 	t.deepEqual(getValidCategories(), expectedCategories);
 });
 
 test("isValidCategory only accepts known categories", (t) => {
-	t.true(isValidCategory("Party Parrot"));
+	const categories = getValidCategories();
+	const sample = categories[0] ?? "Party Parrot";
+	t.true(isValidCategory(sample));
 	t.false(isValidCategory("Not Real Category"));
 	t.false(isValidCategory(""));
 });

@@ -1,38 +1,7 @@
-const VALID_CATEGORIES = [
-	"Among Us",
-	"Blob Cats",
-	"Cat Emojis",
-	"Cowboy Emojis",
-	"Dancing Bananas",
-	"Facebook Reaction",
-	"Game of Thrones",
-	"Hangouts Blob",
-	"HD Emojis",
-	"Jelles Marble Run Teams",
-	"Logo",
-	"Maybe Finance",
-	"Meme",
-	"Microsoft Teams",
-	"MLB",
-	"MLS",
-	"NBA",
-	"NFL",
-	"NHL",
-	"NYC Subway",
-	"Party Parrot",
-	"Piggies",
-	"Pokemon",
-	"Random",
-	"Regional Indicator",
-	"Retro Game",
-	"Scrabble Letters",
-	"Skype",
-	"Star Wars",
-	"Turntable.fm",
-	"Twitch Global",
-	"Yahoo Games",
-	"Yoyo",
-] as const;
+import { getBundledMetadata } from "../data/bundled-metadata.js";
+
+const metadata = getBundledMetadata();
+const VALID_CATEGORIES = metadata.categories as readonly string[];
 
 const getValidCategories = (): string[] => [...VALID_CATEGORIES];
 

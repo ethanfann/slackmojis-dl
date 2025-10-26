@@ -1,0 +1,56 @@
+name: weekly-sync
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+      - run: npm ci
+      - name: Update bundled metadata
+        run: npm run update:metadata
+      - name: Detect file changes
+        id: git-status
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run tests
+        if: steps.git-status.outputs.changed == 'true'
+        run: npm test
+      - name: Configure git user
+        if: steps.git-status.outputs.changed == 'true'
+        run: |
+          git config user.name "slackmojis-bot"
+          git config user.email "slackmojis-bot@users.noreply.github.com"
+      - name: Bump version and commit
+        if: steps.git-status.outputs.changed == 'true'
+        id: versioning
+        run: |
+          npm version patch --no-git-tag-version
+          git add data/slackmojis-metadata.json package.json package-lock.json
+          VERSION=$(node -p "require('./package.json').version")
+          git commit -m "chore: auto-update slackmojis metadata (v${VERSION})"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+      - name: Tag and push
+        if: steps.git-status.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.versioning.outputs.version }}
+        run: |
+          git tag "v${VERSION}"
+          git push origin HEAD:main
+          git push origin "v${VERSION}"
