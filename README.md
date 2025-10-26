@@ -2,7 +2,7 @@
 
 Downloads emojis from https://slackmojis.com/ using their official API
 
-![](media/demo.jpg)
+![](media/demo@2x.png)
 
 ## Prerequisites
 
