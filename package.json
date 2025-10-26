@@ -8,9 +8,7 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "tsc",
-		"pretest": "npm run build --silent",
-		"prestart": "npm run build --silent",
-		"start": "node dist/cli.js",
+		"start": "tsx src/cli.tsx",
 		"test": "ava",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
