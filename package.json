@@ -1,33 +1,46 @@
 {
-  "name": "slackmojis-dl",
-  "version": "2.3.0",
-  "description": "Downloads all emojis from https://slackmojis.com",
-  "main": "cli.js",
-  "author": "Ethan Fann",
-  "license": "MIT",
-  "scripts": {
-    "start": "node cli.js",
-    "test": "check-peer-dependencies && ava"
-  },
-  "bin": "cli.js",
-  "dependencies": {
-    "axios": "^0.21.1",
-    "bluebird": "^3.7.2",
-    "glob": "^7.2.0",
-    "import-jsx": "^4.0.0",
-    "ink": "^3.0.8",
-    "ink-spinner": "^4.0.2",
-    "meow": "^7.1.1",
-    "react": "^17.0.2"
-  },
-  "devDependencies": {
-    "@ethancord/prettier-config": "^1.0.0",
-    "ava": "^3.15.0",
-    "check-peer-dependencies": "^4.1.0",
-    "prettier": "2.1.2"
-  },
-  "prettier": "@ethancord/prettier-config",
-  "engines": {
-    "node": ">=16"
-  }
+	"name": "slackmojis-dl",
+	"version": "3.0.0",
+	"description": "Downloads all emojis from https://slackmojis.com",
+	"type": "module",
+	"main": "dist/cli.js",
+	"author": "Ethan Fann",
+	"license": "MIT",
+	"scripts": {
+		"build": "tsc",
+		"start": "tsx src/cli.tsx",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"update:metadata": "tsx scripts/update-slackmojis-metadata.ts",
+		"prepublishOnly": "npm run build && npm run update:metadata"
+	},
+	"files": [
+		"dist",
+		"data"
+	],
+	"bin": {
+		"slackmojis-dl": "dist/cli.js"
+	},
+	"dependencies": {
+		"commander": "^12.1.0",
+		"glob": "^7.2.0",
+		"ink": "^6.3.1",
+		"react": "^19.2.0",
+		"undici": "^7.1.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.2.6",
+		"@types/glob": "^8.1.0",
+		"@types/node": "^20.14.9",
+		"@types/react": "^19.0.0",
+		"tsx": "^4.19.0",
+		"typescript": "^5.6.3",
+		"vitest": "^4.0.3"
+	},
+	"engines": {
+		"node": ">=20"
+	}
 }

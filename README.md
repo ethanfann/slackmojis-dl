@@ -1,15 +1,13 @@
 # slackmojis-dl
 
-Downloads emojis from https://slackmojis.com/
-
-![example workflow](https://github.com/ethanfann/slackmojis-dl/actions/workflows/node.js.yml/badge.svg)
+Downloads emojis from https://slackmojis.com/ using their official API
 
 ![](media/demo.jpg)
 
 ## Prerequisites
 
 ```
-- Node v12 or later
+- Node LTS
 - NPM
 ```
 
@@ -22,7 +20,7 @@ npx slackmojis-dl
 ### Options
 
 ```
-  --dest      Output directory. Defaults to the working directory
+  --dest      Output directory. Defaults to `./emojis`
   --category  Specify a category to download
   --limit     Restrict the number of pages to download
   --dump      Save the emoji listing to ./emojis.json
@@ -41,6 +39,7 @@ npx slackmojis-dl
 ### Note
 
 Emojis already found within the `emojis/` directory won't be downloaded again on subsequent runs. For a fresh download, delete the `emojis/` directory.
+
 
 ## Organization
 
