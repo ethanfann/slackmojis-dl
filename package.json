@@ -9,7 +9,8 @@
 	"scripts": {
 		"build": "tsc",
 		"pretest": "npm run build --silent",
-		"start": "npm run build --silent && node dist/cli.js",
+		"prestart": "npm run build --silent",
+		"start": "node dist/cli.js",
 		"test": "ava",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
@@ -32,9 +33,9 @@
 		"slackmojis-dl": "dist/cli.js"
 	},
 	"dependencies": {
+		"commander": "^12.1.0",
 		"glob": "^7.2.0",
 		"ink": "^6.3.1",
-		"meow": "^7.1.1",
 		"react": "^19.2.0",
 		"undici": "^7.1.0"
 	},

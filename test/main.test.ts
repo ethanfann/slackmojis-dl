@@ -7,6 +7,10 @@ import {
 	buildDownloadTargets,
 	extractEmojiName,
 } from "../dist/emoji/build-download-targets.js";
+import {
+	getValidCategories,
+	isValidCategory,
+} from "../dist/emoji/categories.js";
 import { listEmojiEntries } from "../dist/services/filesystem/emoji-inventory.js";
 import { downloadImage } from "../dist/services/slackmojis/download-image.js";
 import { fetchAllEmojis } from "../dist/services/slackmojis/fetch-all-emojis.js";
@@ -198,6 +202,52 @@ test.serial(
 		t.is(results.length, sampleEmojiPages[0].length);
 	},
 );
+
+test("valid categories mirror disk layout", (t) => {
+	const expectedCategories = [
+		"Among Us",
+		"Blob Cats",
+		"Cat Emojis",
+		"Cowboy Emojis",
+		"Dancing Bananas",
+		"Facebook Reaction",
+		"Game of Thrones",
+		"Hangouts Blob",
+		"HD Emojis",
+		"Jelles Marble Run Teams",
+		"Logo",
+		"Maybe Finance",
+		"Meme",
+		"Microsoft Teams",
+		"MLB",
+		"MLS",
+		"NBA",
+		"NFL",
+		"NHL",
+		"NYC Subway",
+		"Party Parrot",
+		"Piggies",
+		"Pokemon",
+		"Random",
+		"Regional Indicator",
+		"Retro Game",
+		"Scrabble Letters",
+		"Skype",
+		"Star Wars",
+		"Turntable.fm",
+		"Twitch Global",
+		"Yahoo Games",
+		"Yoyo",
+	];
+
+	t.deepEqual(getValidCategories(), expectedCategories);
+});
+
+test("isValidCategory only accepts known categories", (t) => {
+	t.true(isValidCategory("Party Parrot"));
+	t.false(isValidCategory("Not Real Category"));
+	t.false(isValidCategory(""));
+});
 
 test.serial("parse a url to obtain an emoji name", (t) => {
 	const name =

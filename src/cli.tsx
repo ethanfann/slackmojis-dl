@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import { type Instance, render } from "ink";
-import meow from "meow";
+import { Command, Option } from "commander";
 import App from "./app.js";
 import {
 	downloadThrottleConfig,
@@ -11,20 +11,7 @@ import {
 	fetchAllEmojis,
 	resolveLastPageHint,
 } from "./services/slackmojis/index.js";
-
-type MeowModule = typeof meow & { readonly default?: typeof meow };
-
-const meowModule = meow as MeowModule;
-const meowCli = meowModule.default ?? meowModule;
-
-type CliFlagDefinitions = {
-	dest: meow.StringFlag;
-	limit: meow.NumberFlag;
-	"page-concurrency": meow.NumberFlag;
-	"download-concurrency": meow.NumberFlag;
-	dump: meow.BooleanFlag;
-	category: meow.StringFlag;
-};
+import { getValidCategories } from "./emoji/categories.js";
 
 type CliFlags = {
 	dest?: string;
@@ -35,37 +22,55 @@ type CliFlags = {
 	category?: string;
 };
 
-const cliDescription = `
-	Usage
-	  $ ./cli.js
-  Options
-    --dest  Output directory that defaults to the working directory
-    --limit Restrict the number of pages to download
-    --page-concurrency  Number of page fetch workers (default ${pageThrottleConfig.defaultConcurrency})
-    --download-concurrency  Number of concurrent downloads (default ${downloadThrottleConfig.defaultConcurrency})
-    --dump  Save the emoji listing to ./emojis.json
-            Override save location with --path
-    --category The category name to download
-  Examples
-    $ ./cli.js --dest desired/path
-    $ ./cli.js --limit=5
-    $ ./cli.js --dest desired/path --dump
-    $ ./cli.js --category "Hangouts Blob"
-`;
+const parseNumber = (value: string): number => {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) {
+		throw new TypeError(`Expected a number but received "${value}"`);
+	}
+	return parsed;
+};
 
-const cli = meowCli<CliFlagDefinitions>(cliDescription, {
-	flags: {
-		dest: { type: "string" },
-		limit: { type: "number" },
-		"page-concurrency": { type: "number" },
-		"download-concurrency": { type: "number" },
-		dump: { type: "boolean" },
-		category: { type: "string" },
-	},
-});
+
+const validCategories = getValidCategories();
+const categoryOption = new Option("--category <name>", "The category name to download");
+
+if (validCategories.length > 0) {
+	categoryOption.choices(validCategories);
+}
+
+const program = new Command()
+	.name("slackmojis-dl")
+	.option("--dest <path>", "Output directory that defaults to the working directory")
+	.option("--limit <number>", "Restrict the number of pages to download", parseNumber)
+	.option(
+		"--page-concurrency <number>",
+		`Number of page fetch workers (default ${pageThrottleConfig.defaultConcurrency})`,
+		parseNumber,
+	)
+	.option(
+		"--download-concurrency <number>",
+		`Number of concurrent downloads (default ${downloadThrottleConfig.defaultConcurrency})`,
+		parseNumber,
+	)
+	.option("--dump", "Save the emoji listing to ./emojis.json")
+	.addOption(categoryOption)
+	.showHelpAfterError();
+
+program.parse(process.argv);
 
 const run = async (): Promise<void> => {
-	const flags = cli.flags as CliFlags;
+	const flags = program.opts<CliFlags>();
+
+	if (
+		validCategories.length > 0 &&
+		flags.category &&
+		!validCategories.includes(flags.category)
+	) {
+		console.error(
+			`Invalid category "${flags.category}". Valid options are: ${validCategories.join(", ")}`,
+		);
+		process.exit(1);
+	}
 
 	if (flags.dump) {
 		try {
