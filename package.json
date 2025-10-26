@@ -9,7 +9,8 @@
 	"scripts": {
 		"build": "tsc",
 		"start": "tsx src/cli.tsx",
-		"test": "ava",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
@@ -20,17 +21,6 @@
 		"dist",
 		"data"
 	],
-	"ava": {
-		"files": [
-			"test/**/*.test.ts"
-		],
-		"extensions": [
-			"ts"
-		],
-		"nodeArguments": [
-			"--import=tsx/esm"
-		]
-	},
 	"bin": {
 		"slackmojis-dl": "dist/cli.js"
 	},
@@ -46,9 +36,9 @@
 		"@types/glob": "^8.1.0",
 		"@types/node": "^20.14.9",
 		"@types/react": "^19.0.0",
-		"ava": "^3.15.0",
 		"tsx": "^4.19.0",
-		"typescript": "^5.6.3"
+		"typescript": "^5.6.3",
+		"vitest": "^4.0.3"
 	},
 	"engines": {
 		"node": ">=20"

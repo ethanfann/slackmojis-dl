@@ -1,21 +1,28 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import test from "ava";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	beforeEach,
+	expect,
+	test,
+} from "vitest";
 import { Agent, MockAgent, setGlobalDispatcher } from "undici";
 import {
 	buildDownloadTargets,
 	extractEmojiName,
-} from "../dist/emoji/build-download-targets.js";
+} from "../src/emoji/build-download-targets.ts";
 import {
 	getValidCategories,
 	isValidCategory,
-} from "../dist/emoji/categories.js";
-import { listEmojiEntries } from "../dist/services/filesystem/emoji-inventory.js";
-import { downloadImage } from "../dist/services/slackmojis/download-image.js";
-import { fetchAllEmojis } from "../dist/services/slackmojis/fetch-all-emojis.js";
-import { fetchPage } from "../dist/services/slackmojis/fetch-page.js";
-import type { SlackmojiEntry } from "../src/types/slackmoji.js";
+} from "../src/emoji/categories.ts";
+import { listEmojiEntries } from "../src/services/filesystem/emoji-inventory.ts";
+import { downloadImage } from "../src/services/slackmojis/download-image.ts";
+import { fetchAllEmojis } from "../src/services/slackmojis/fetch-all-emojis.ts";
+import { fetchPage } from "../src/services/slackmojis/fetch-page.ts";
+import type { SlackmojiEntry } from "../src/types/slackmoji.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..");
@@ -84,20 +91,20 @@ const stubEmojiDownload = (emoji: SlackmojiEntry): void => {
 		});
 };
 
-test.before(() => {
+beforeAll(() => {
 	mockAgent.disableNetConnect();
 	setGlobalDispatcher(mockAgent);
 });
 
-test.beforeEach(() => {
+beforeEach(() => {
 	mockAgent.assertNoPendingInterceptors();
 });
 
-test.afterEach.always(() => {
+afterEach(() => {
 	mockAgent.assertNoPendingInterceptors();
 });
 
-test.after.always(async () => {
+afterAll(async () => {
 	mockAgent.enableNetConnect();
 	await mockAgent.close();
 	setGlobalDispatcher(
@@ -116,7 +123,7 @@ fs.mkdirSync(downloadDir, { recursive: true });
 if (fs.existsSync(generateDir)) fs.rmSync(generateDir, { recursive: true });
 fs.mkdirSync(generateDir, { recursive: true });
 
-test.serial("downloads emojis", async (t) => {
+test.sequential("downloads emojis", async () => {
 	stubEmojiPage(0);
 	const emojiFromFirstPage = sampleEmojiPages[0][0];
 	stubEmojiDownload(emojiFromFirstPage);
@@ -128,10 +135,10 @@ test.serial("downloads emojis", async (t) => {
 	if (!fs.existsSync(emoji.dest)) fs.mkdirSync(emoji.dest, { recursive: true });
 	await downloadImage(emoji.url, path.join(emoji.dest, emoji.name));
 
-	t.is(listEmojiEntries(downloadDir).length === 1, true);
+	expect(listEmojiEntries(downloadDir).length).toBe(1);
 });
 
-test.serial("loads existing emojis", (t) => {
+test.sequential("loads existing emojis", () => {
 	const range = [...Array(10).keys()];
 	const extensions = [".jpg", ".png", ".gif"];
 
@@ -147,10 +154,10 @@ test.serial("loads existing emojis", (t) => {
 
 	const existing = listEmojiEntries(generateDir);
 
-	t.is(existing.length === 10, true);
+	expect(existing.length).toBe(10);
 });
 
-test.serial("filter emojis when a category is specified", async (t) => {
+test.sequential("filter emojis when a category is specified", async () => {
 	stubEmojiPage(0);
 	const results = await fetchPage(0);
 	const prepared = buildDownloadTargets(results, "Party Parrot", downloadDir);
@@ -159,34 +166,36 @@ test.serial("filter emojis when a category is specified", async (t) => {
 		(emoji) => !emoji.dest.includes("Party Parrot"),
 	);
 
-	t.is(nonPartyParrot.length === 0, true);
+	expect(nonPartyParrot.length).toBe(0);
 });
 
-test.serial("obtains single pages of emojis", async (t) => {
+test.sequential("obtains single pages of emojis", async () => {
 	stubEmojiPage(0);
 	const results = await fetchPage(0);
 
-	t.is(results.length > 0, true);
+	expect(results.length).toBeGreaterThan(0);
 });
 
-test.serial("obtains multiple pages of emojis", async (t) => {
+test.sequential("obtains multiple pages of emojis", async () => {
 	stubEmojiPage(0);
 	stubEmojiPage(1);
 
 	const results = await fetchAllEmojis({ limit: 2 });
 
-	t.is(results.length, sampleEmojiPages[0].length + sampleEmojiPages[1].length);
+	expect(results.length).toBe(
+		sampleEmojiPages[0].length + sampleEmojiPages[1].length,
+	);
 });
 
-test.serial("limit of zero skips fetching pages", async (t) => {
+test.sequential("limit of zero skips fetching pages", async () => {
 	const results = await fetchAllEmojis({ limit: 0 });
 
-	t.is(results.length, 0);
+	expect(results.length).toBe(0);
 });
 
-test.serial(
+test.sequential(
 	"fetchAllEmojis stops after encountering an empty page",
-	async (t) => {
+	async () => {
 		stubEmojiPage(0);
 		slackmojisPool
 			.intercept({
@@ -199,32 +208,32 @@ test.serial(
 
 		const results = await fetchAllEmojis({ concurrency: 1 });
 
-		t.is(results.length, sampleEmojiPages[0].length);
+		expect(results.length).toBe(sampleEmojiPages[0].length);
 	},
 );
 
-test("valid categories mirror bundled metadata", (t) => {
+test("valid categories mirror bundled metadata", () => {
 	const metadataPath = path.join(projectRoot, "data", "slackmojis-metadata.json");
 	const raw = JSON.parse(
 		fs.readFileSync(metadataPath, "utf8"),
 	) as { categories?: string[] };
 	const expectedCategories = Array.isArray(raw.categories) ? raw.categories : [];
 
-	t.deepEqual(getValidCategories(), expectedCategories);
+	expect(getValidCategories()).toEqual(expectedCategories);
 });
 
-test("isValidCategory only accepts known categories", (t) => {
+test("isValidCategory only accepts known categories", () => {
 	const categories = getValidCategories();
 	const sample = categories[0] ?? "Party Parrot";
-	t.true(isValidCategory(sample));
-	t.false(isValidCategory("Not Real Category"));
-	t.false(isValidCategory(""));
+	expect(isValidCategory(sample)).toBe(true);
+	expect(isValidCategory("Not Real Category")).toBe(false);
+	expect(isValidCategory("")).toBe(false);
 });
 
-test.serial("parse a url to obtain an emoji name", (t) => {
+test.sequential("parse a url to obtain an emoji name", () => {
 	const name =
 		"https://emojis.slackmojis.com/emojis/images/1615690644/20375/0.gif?1615690644";
 	const extracted = extractEmojiName(name);
 
-	t.is(extracted, "0.gif");
+	expect(extracted).toBe("0.gif");
 });
