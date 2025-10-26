@@ -7,6 +7,7 @@ const wait = (ms: number): Promise<void> =>
 
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_RETRY_DELAY_MS = 250;
+const BASE_JITTER_RATIO = 1; // full jitter keeps retries responsive when the host recovers quickly
 
 const toRelativePath = (inputUrl: string): string => {
 	try {
@@ -35,6 +36,15 @@ type DownloadOptions = {
 	retryDelayMs?: number;
 };
 
+const calculateBackoffDelay = (baseDelayMs: number, attempt: number): number => {
+	const exponent = Math.max(0, attempt - 1);
+	const exponentialDelay = baseDelayMs * 2 ** exponent;
+	const jitterWindow = exponentialDelay * BASE_JITTER_RATIO;
+	const minDelay = exponentialDelay - jitterWindow;
+	const jitteredDelay = minDelay + Math.random() * jitterWindow;
+	return Math.max(1, jitteredDelay);
+};
+
 const downloadImage = async (
 	url: string,
 	destination: string,
@@ -61,7 +71,8 @@ const downloadImage = async (
 				break;
 			}
 
-			await wait(retryDelayMs * attempt);
+			const delayMs = calculateBackoffDelay(retryDelayMs, attempt);
+			await wait(delayMs);
 		}
 	}
 
