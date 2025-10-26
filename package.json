@@ -32,11 +32,11 @@
 		"slackmojis-dl": "dist/cli.js"
 	},
 	"dependencies": {
-		"axios": "^0.21.1",
 		"glob": "^7.2.0",
 		"ink": "^6.3.1",
 		"meow": "^7.1.1",
-		"react": "^19.2.0"
+		"react": "^19.2.0",
+		"undici": "^7.1.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.6",
@@ -44,7 +44,6 @@
 		"@types/node": "^20.14.9",
 		"@types/react": "^19.0.0",
 		"ava": "^3.15.0",
-		"nock": "^13.5.6",
 		"tsx": "^4.19.0",
 		"typescript": "^5.6.3"
 	},

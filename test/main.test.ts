@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "ava";
-import nock from "nock";
+import { Agent, MockAgent, setGlobalDispatcher } from "undici";
 import {
 	buildDownloadTargets,
 	extractEmojiName,
@@ -24,6 +24,9 @@ const projectRoot = path.join(__dirname, "..");
 const tempDir = path.join(projectRoot, "temp");
 const downloadDir = path.join(tempDir, "download");
 const generateDir = path.join(tempDir, "generate");
+const mockAgent = new MockAgent();
+const slackmojisPool = mockAgent.get("https://slackmojis.com");
+const emojiCdnPool = mockAgent.get("https://emojis.slackmojis.com");
 
 const sampleEmojiPages: Record<number, SlackmojiEntry[]> = {
 	0: [
@@ -55,30 +58,51 @@ const sampleEmojiPages: Record<number, SlackmojiEntry[]> = {
 
 const stubEmojiPage = (page: number): void => {
 	const payload = sampleEmojiPages[page] ?? [];
-	nock("https://slackmojis.com")
-		.get("/emojis.json")
-		.query({ page: String(page) })
-		.reply(200, payload);
+	slackmojisPool
+		.intercept({
+			method: "GET",
+			path: `/emojis.json?page=${page}`,
+		})
+		.reply(200, payload, {
+			headers: { "Content-Type": "application/json" },
+		});
 };
 
 const stubEmojiDownload = (emoji: SlackmojiEntry): void => {
-	const { origin, pathname } = new URL(emoji.image_url);
-	nock(origin).get(pathname).reply(200, "gifdata", {
-		"Content-Type": "image/gif",
-	});
+	const { pathname, search } = new URL(emoji.image_url);
+	emojiCdnPool
+		.intercept({
+			method: "GET",
+			path: `${pathname}${search ?? ""}`,
+		})
+		.reply(200, "gifdata", {
+			headers: { "Content-Type": "image/gif" },
+		});
 };
 
 test.before(() => {
-	nock.disableNetConnect();
+	mockAgent.disableNetConnect();
+	setGlobalDispatcher(mockAgent);
 });
 
 test.beforeEach(() => {
-	nock.cleanAll();
+	mockAgent.assertNoPendingInterceptors();
 });
 
-test.after.always(() => {
-	nock.enableNetConnect();
-	nock.cleanAll();
+test.afterEach.always(() => {
+	mockAgent.assertNoPendingInterceptors();
+});
+
+test.after.always(async () => {
+	mockAgent.enableNetConnect();
+	await mockAgent.close();
+	setGlobalDispatcher(
+		new Agent({
+			connectTimeout: 30_000,
+			bodyTimeout: 30_000,
+			headersTimeout: 30_000,
+		}),
+	);
 });
 
 // Clean up the temp directories
@@ -88,7 +112,7 @@ fs.mkdirSync(downloadDir, { recursive: true });
 if (fs.existsSync(generateDir)) fs.rmSync(generateDir, { recursive: true });
 fs.mkdirSync(generateDir, { recursive: true });
 
-test("downloads emojis", async (t) => {
+test.serial("downloads emojis", async (t) => {
 	stubEmojiPage(0);
 	const emojiFromFirstPage = sampleEmojiPages[0][0];
 	stubEmojiDownload(emojiFromFirstPage);
@@ -103,7 +127,7 @@ test("downloads emojis", async (t) => {
 	t.is(listEmojiEntries(downloadDir).length === 1, true);
 });
 
-test("loads existing emojis", (t) => {
+test.serial("loads existing emojis", (t) => {
 	const range = [...Array(10).keys()];
 	const extensions = [".jpg", ".png", ".gif"];
 
@@ -122,7 +146,7 @@ test("loads existing emojis", (t) => {
 	t.is(existing.length === 10, true);
 });
 
-test("filter emojis when a category is specified", async (t) => {
+test.serial("filter emojis when a category is specified", async (t) => {
 	stubEmojiPage(0);
 	const results = await fetchPage(0);
 	const prepared = buildDownloadTargets(results, "Party Parrot", downloadDir);
@@ -134,14 +158,14 @@ test("filter emojis when a category is specified", async (t) => {
 	t.is(nonPartyParrot.length === 0, true);
 });
 
-test("obtains single pages of emojis", async (t) => {
+test.serial("obtains single pages of emojis", async (t) => {
 	stubEmojiPage(0);
 	const results = await fetchPage(0);
 
 	t.is(results.length > 0, true);
 });
 
-test("obtains multiple pages of emojis", async (t) => {
+test.serial("obtains multiple pages of emojis", async (t) => {
 	stubEmojiPage(0);
 	stubEmojiPage(1);
 
@@ -150,25 +174,29 @@ test("obtains multiple pages of emojis", async (t) => {
 	t.is(results.length, sampleEmojiPages[0].length + sampleEmojiPages[1].length);
 });
 
-test("limit of zero skips fetching pages", async (t) => {
+test.serial("limit of zero skips fetching pages", async (t) => {
 	const results = await fetchAllEmojis({ limit: 0 });
 
 	t.is(results.length, 0);
 });
 
-test("fetchAllEmojis stops after encountering an empty page", async (t) => {
+test.serial("fetchAllEmojis stops after encountering an empty page", async (t) => {
 	stubEmojiPage(0);
-	nock("https://slackmojis.com")
-		.get("/emojis.json")
-		.query({ page: "1" })
-		.reply(200, []);
+	slackmojisPool
+		.intercept({
+			method: "GET",
+			path: "/emojis.json?page=1",
+		})
+		.reply(200, [], {
+			headers: { "Content-Type": "application/json" },
+		});
 
 	const results = await fetchAllEmojis({ concurrency: 1 });
 
 	t.is(results.length, sampleEmojiPages[0].length);
 });
 
-test("parse a url to obtain an emoji name", (t) => {
+test.serial("parse a url to obtain an emoji name", (t) => {
 	const name =
 		"https://emojis.slackmojis.com/emojis/images/1615690644/20375/0.gif?1615690644";
 	const extracted = extractEmojiName(name);

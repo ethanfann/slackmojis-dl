@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { getStreamClient } from "./client.js";
 
@@ -50,11 +49,8 @@ const downloadImage = async (
 
 	while (attempt <= maxRetries) {
 		try {
-			const response = await client.get<Readable>(toRelativePath(url));
-			await pipeline(
-				response.data as Readable,
-				fs.createWriteStream(destination),
-			);
+			const response = await client.get(toRelativePath(url));
+			await pipeline(response.data, fs.createWriteStream(destination));
 			return destination;
 		} catch (error) {
 			lastError = error;
