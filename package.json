@@ -6,6 +6,13 @@
 	"main": "dist/cli.js",
 	"author": "Ethan Fann",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/ethanfann/slackmojis-dl.git"
+	},
+	"bugs": {
+		"url": "https://github.com/ethanfann/slackmojis-dl/issues"
+	},
 	"scripts": {
 		"build": "tsc",
 		"start": "tsx src/cli.tsx",
@@ -14,8 +21,7 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"format": "biome format --write .",
-		"update:metadata": "tsx scripts/update-slackmojis-metadata.ts",
-		"prepublishOnly": "npm run build && npm run update:metadata"
+		"update:metadata": "tsx scripts/update-slackmojis-metadata.ts"
 	},
 	"files": [
 		"dist",
