@@ -1,13 +1,10 @@
 import fs from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { getStreamClient } from "./client.js";
+import { slackmojisDownloadConfig } from "./config.js";
 
 const wait = (ms: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, ms));
-
-const DEFAULT_MAX_RETRIES = 2;
-const DEFAULT_RETRY_DELAY_MS = 250;
-const BASE_JITTER_RATIO = 1; // full jitter keeps retries responsive when the host recovers quickly
 
 const toRelativePath = (inputUrl: string): string => {
 	try {
@@ -36,10 +33,23 @@ type DownloadOptions = {
 	retryDelayMs?: number;
 };
 
-const calculateBackoffDelay = (baseDelayMs: number, attempt: number): number => {
+const calculateBackoffDelay = (
+	baseDelayMs: number,
+	attempt: number,
+): number => {
 	const exponent = Math.max(0, attempt - 1);
-	const exponentialDelay = baseDelayMs * 2 ** exponent;
-	const jitterWindow = exponentialDelay * BASE_JITTER_RATIO;
+	const normalizedMultiplier = Math.max(
+		1,
+		slackmojisDownloadConfig.backoffMultiplier,
+	);
+	const rawDelay = baseDelayMs * normalizedMultiplier ** exponent;
+	const maxDelay = Math.max(baseDelayMs, slackmojisDownloadConfig.maxDelayMs);
+	const exponentialDelay = Math.min(rawDelay, maxDelay);
+	const normalizedJitterRatio = Math.min(
+		1,
+		Math.max(0, slackmojisDownloadConfig.jitterRatio),
+	);
+	const jitterWindow = exponentialDelay * normalizedJitterRatio;
 	const minDelay = exponentialDelay - jitterWindow;
 	const jitteredDelay = minDelay + Math.random() * jitterWindow;
 	return Math.max(1, jitteredDelay);
@@ -51,8 +61,9 @@ const downloadImage = async (
 	options: DownloadOptions = {},
 ): Promise<string> => {
 	const client = getStreamClient();
-	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
-	const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
+	const maxRetries = options.maxRetries ?? slackmojisDownloadConfig.maxRetries;
+	const retryDelayMs =
+		options.retryDelayMs ?? slackmojisDownloadConfig.retryDelayMs;
 
 	let attempt = 0;
 	let lastError: unknown = null;

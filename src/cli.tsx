@@ -4,6 +4,10 @@ import { type Instance, render } from "ink";
 import meow from "meow";
 import App from "./app.js";
 import {
+	downloadThrottleConfig,
+	pageThrottleConfig,
+} from "./services/slackmojis/config.js";
+import {
 	fetchAllEmojis,
 	resolveLastPageHint,
 } from "./services/slackmojis/index.js";
@@ -31,15 +35,14 @@ type CliFlags = {
 	category?: string;
 };
 
-const cli = meowCli<CliFlagDefinitions>(
-	`
+const cliDescription = `
 	Usage
 	  $ ./cli.js
   Options
     --dest  Output directory that defaults to the working directory
     --limit Restrict the number of pages to download
-    --page-concurrency  Number of page fetch workers (default 8)
-    --download-concurrency  Number of concurrent downloads (default 200)
+    --page-concurrency  Number of page fetch workers (default ${pageThrottleConfig.defaultConcurrency})
+    --download-concurrency  Number of concurrent downloads (default ${downloadThrottleConfig.defaultConcurrency})
     --dump  Save the emoji listing to ./emojis.json
             Override save location with --path
     --category The category name to download
@@ -48,18 +51,18 @@ const cli = meowCli<CliFlagDefinitions>(
     $ ./cli.js --limit=5
     $ ./cli.js --dest desired/path --dump
     $ ./cli.js --category "Hangouts Blob"
-`,
-	{
-		flags: {
-			dest: { type: "string" },
-			limit: { type: "number" },
-			"page-concurrency": { type: "number" },
-			"download-concurrency": { type: "number" },
-			dump: { type: "boolean" },
-			category: { type: "string" },
-		},
+`;
+
+const cli = meowCli<CliFlagDefinitions>(cliDescription, {
+	flags: {
+		dest: { type: "string" },
+		limit: { type: "number" },
+		"page-concurrency": { type: "number" },
+		"download-concurrency": { type: "number" },
+		dump: { type: "boolean" },
+		category: { type: "string" },
 	},
-);
+});
 
 const run = async (): Promise<void> => {
 	const flags = cli.flags as CliFlags;

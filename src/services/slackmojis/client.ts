@@ -14,10 +14,7 @@ const JSON_BASE_URL = "https://slackmojis.com";
 const STREAM_BASE_URL = "https://emojis.slackmojis.com";
 const REQUEST_TIMEOUT_MS = 30_000;
 
-type QueryParams = Record<
-	string,
-	string | number | boolean | null | undefined
->;
+type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
 type RequestConfig = {
 	headers?: Record<string, string>;

@@ -180,21 +180,24 @@ test.serial("limit of zero skips fetching pages", async (t) => {
 	t.is(results.length, 0);
 });
 
-test.serial("fetchAllEmojis stops after encountering an empty page", async (t) => {
-	stubEmojiPage(0);
-	slackmojisPool
-		.intercept({
-			method: "GET",
-			path: "/emojis.json?page=1",
-		})
-		.reply(200, [], {
-			headers: { "Content-Type": "application/json" },
-		});
+test.serial(
+	"fetchAllEmojis stops after encountering an empty page",
+	async (t) => {
+		stubEmojiPage(0);
+		slackmojisPool
+			.intercept({
+				method: "GET",
+				path: "/emojis.json?page=1",
+			})
+			.reply(200, [], {
+				headers: { "Content-Type": "application/json" },
+			});
 
-	const results = await fetchAllEmojis({ concurrency: 1 });
+		const results = await fetchAllEmojis({ concurrency: 1 });
 
-	t.is(results.length, sampleEmojiPages[0].length);
-});
+		t.is(results.length, sampleEmojiPages[0].length);
+	},
+);
 
 test.serial("parse a url to obtain an emoji name", (t) => {
 	const name =

@@ -115,8 +115,7 @@ const createAdaptiveConcurrencyController = ({
 		};
 	};
 
-	const shouldCooldown = (): boolean =>
-		now() - lastAdjustment < cooldownMs;
+	const shouldCooldown = (): boolean => now() - lastAdjustment < cooldownMs;
 
 	const requestDecrease = () => {
 		const dropByStep = currentLimit - decreaseStep;

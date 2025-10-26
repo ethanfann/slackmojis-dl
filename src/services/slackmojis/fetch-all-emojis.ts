@@ -1,8 +1,9 @@
 import type { SlackmojiEntry } from "../../types/slackmoji.js";
+import { fetchAllPageConcurrency } from "./config.js";
 import { fetchPage } from "./fetch-page.js";
 import { MIN_LAST_PAGE_INDEX } from "./last-page-hint.js";
 
-const DEFAULT_PAGE_CONCURRENCY = 10;
+const DEFAULT_PAGE_CONCURRENCY = fetchAllPageConcurrency;
 
 const sanitizeLimit = (limit: unknown): number | null => {
 	if (limit === undefined || limit === null) {

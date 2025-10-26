@@ -6,18 +6,19 @@ import {
 	type DownloadTarget,
 } from "../emoji/build-download-targets.js";
 import {
-	createTaskQueue,
-	type QueueStats,
-} from "../lib/task-queue.js";
-import {
-	createAdaptiveConcurrencyController,
 	type AdaptiveConcurrencyController,
+	createAdaptiveConcurrencyController,
 } from "../lib/adaptive-concurrency.js";
+import { createTaskQueue, type QueueStats } from "../lib/task-queue.js";
 import { listEmojiEntries } from "../services/filesystem/emoji-inventory.js";
 import {
 	readRunMetadata,
 	writeRunMetadata,
 } from "../services/filesystem/run-metadata.js";
+import {
+	downloadThrottleConfig,
+	pageThrottleConfig,
+} from "../services/slackmojis/config.js";
 import {
 	downloadImage,
 	fetchPage,
@@ -27,38 +28,10 @@ import {
 } from "../services/slackmojis/index.js";
 import type { SlackmojiEntry } from "../types/slackmoji.js";
 
-const DEFAULT_DOWNLOAD_CONCURRENCY = 200;
-const DEFAULT_PAGE_CONCURRENCY = 12;
-const DOWNLOAD_ADAPTIVE_CONFIG = {
-	min: 50,
-	max: 400,
-	increaseStep: 25,
-	decreaseStep: 40,
-	decreaseRatio: 0.85,
-	lowLatencyMs: 400,
-	highLatencyMs: 1500,
-	maxErrorRateForIncrease: 0.05,
-	highErrorRateForDecrease: 0.15,
-	pendingPressure: 5,
-	sampleWindow: 30,
-	minSamples: 6,
-	cooldownMs: 1500,
-} as const;
-const PAGE_ADAPTIVE_CONFIG = {
-	min: 6,
-	max: 40,
-	increaseStep: 2,
-	decreaseStep: 2,
-	decreaseRatio: 0.8,
-	lowLatencyMs: 250,
-	highLatencyMs: 900,
-	maxErrorRateForIncrease: 0.1,
-	highErrorRateForDecrease: 0.2,
-	pendingPressure: 1,
-	sampleWindow: 20,
-	minSamples: 5,
-	cooldownMs: 1200,
-} as const;
+const DEFAULT_DOWNLOAD_CONCURRENCY = downloadThrottleConfig.defaultConcurrency;
+const DEFAULT_PAGE_CONCURRENCY = pageThrottleConfig.defaultConcurrency;
+const DOWNLOAD_ADAPTIVE_CONFIG = downloadThrottleConfig.adaptive;
+const PAGE_ADAPTIVE_CONFIG = pageThrottleConfig.adaptive;
 const normalizeKey = (category: string, name: string): string =>
 	path.join(category, name);
 
@@ -656,10 +629,8 @@ const createEmojiPipeline = ({
 				decreaseRatio: PAGE_ADAPTIVE_CONFIG.decreaseRatio,
 				lowLatencyMs: PAGE_ADAPTIVE_CONFIG.lowLatencyMs,
 				highLatencyMs: PAGE_ADAPTIVE_CONFIG.highLatencyMs,
-				maxErrorRateForIncrease:
-					PAGE_ADAPTIVE_CONFIG.maxErrorRateForIncrease,
-				highErrorRateForDecrease:
-					PAGE_ADAPTIVE_CONFIG.highErrorRateForDecrease,
+				maxErrorRateForIncrease: PAGE_ADAPTIVE_CONFIG.maxErrorRateForIncrease,
+				highErrorRateForDecrease: PAGE_ADAPTIVE_CONFIG.highErrorRateForDecrease,
 				pendingPressure: PAGE_ADAPTIVE_CONFIG.pendingPressure,
 				sampleWindow: PAGE_ADAPTIVE_CONFIG.sampleWindow,
 				minSamples: PAGE_ADAPTIVE_CONFIG.minSamples,
