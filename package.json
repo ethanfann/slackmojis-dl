@@ -32,7 +32,7 @@
 	},
 	"dependencies": {
 		"commander": "^12.1.0",
-		"glob": "^7.2.0",
+		"glob": "^13.0.6",
 		"ink": "^6.3.1",
 		"react": "^19.2.0",
 		"undici": "^7.1.0"
