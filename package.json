@@ -15,8 +15,10 @@
 	},
 	"scripts": {
 		"build": "tsc",
+		"prepack": "npm run build",
 		"start": "tsx src/cli.tsx",
 		"test": "vitest run",
+		"test:package": "tsx scripts/test-package.ts",
 		"test:watch": "vitest",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
@@ -35,7 +37,7 @@
 		"glob": "^7.2.0",
 		"ink": "^6.3.1",
 		"react": "^19.2.0",
-		"undici": "^7.1.0"
+		"undici": "^7.29.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.2.6",
@@ -44,9 +46,9 @@
 		"@types/react": "^19.0.0",
 		"tsx": "^4.19.0",
 		"typescript": "^5.6.3",
-		"vitest": "^4.0.3"
+		"vitest": "^4.1.11"
 	},
 	"engines": {
-		"node": ">=20"
+		"node": ">=20.18.1"
 	}
 }

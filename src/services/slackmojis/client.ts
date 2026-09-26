@@ -20,6 +20,7 @@ type RequestConfig = {
 	headers?: Record<string, string>;
 	params?: QueryParams;
 	timeoutMs?: number;
+	signal?: AbortSignal;
 };
 
 type HttpResponse<T> = {
@@ -117,6 +118,7 @@ const dispatchJson = async <T>(
 		bodyTimeout: timeout,
 		headersTimeout: timeout,
 		dispatcher,
+		signal: config?.signal,
 	});
 
 	const { statusCode, body } = response;
@@ -151,6 +153,7 @@ const dispatchStream = async (
 		bodyTimeout: timeout,
 		headersTimeout: timeout,
 		dispatcher,
+		signal: config?.signal,
 	});
 
 	const { statusCode, body } = response;

@@ -83,13 +83,15 @@ const applyEvent = (
 	switch (event.type) {
 		case "status": {
 			const status: DownloaderStatus =
-				event.stage === "determine-last-page"
-					? "determining-last-page"
-					: event.stage === "fetching"
-						? "fetching"
-						: event.stage === "complete"
-							? "complete"
-							: state.status;
+				state.errors.length > 0 || state.failure !== null
+					? "error"
+					: event.stage === "determine-last-page"
+						? "determining-last-page"
+						: event.stage === "fetching"
+							? "fetching"
+							: event.stage === "complete"
+								? "complete"
+								: state.status;
 
 			const completed = event.stage === "complete";
 
@@ -243,6 +245,7 @@ type EmojiDownloaderOptions = {
 	category?: string | null;
 	pageConcurrency?: number | null;
 	downloadConcurrency?: number | null;
+	signal?: AbortSignal;
 };
 
 const useEmojiDownloader = ({
@@ -251,6 +254,7 @@ const useEmojiDownloader = ({
 	category,
 	pageConcurrency,
 	downloadConcurrency,
+	signal,
 }: EmojiDownloaderOptions): DownloaderState => {
 	const [state, setState] = React.useState<DownloaderState>(initialState);
 
@@ -266,6 +270,7 @@ const useEmojiDownloader = ({
 			dest,
 			limit,
 			category,
+			signal,
 			pageConcurrency: pageConcurrency ?? DEFAULT_PAGE_CONCURRENCY,
 			downloadConcurrency: downloadConcurrency ?? DEFAULT_DOWNLOAD_CONCURRENCY,
 			onEvent: (event) => {
@@ -277,18 +282,16 @@ const useEmojiDownloader = ({
 			},
 		});
 
-		pipeline.start().catch((error: unknown) => {
-			if (cancelled) {
-				return;
-			}
-			setState((previous) => applyEvent(previous, { type: "error", error }));
+		pipeline.start().catch(() => {
+			// The pipeline emits the error and completion once, including failures
+			// before its queues are created. Do not duplicate the error here.
 		});
 
 		return () => {
 			cancelled = true;
 			pipeline.stop();
 		};
-	}, [dest, limit, category, pageConcurrency, downloadConcurrency]);
+	}, [dest, limit, category, pageConcurrency, downloadConcurrency, signal]);
 
 	return state;
 };

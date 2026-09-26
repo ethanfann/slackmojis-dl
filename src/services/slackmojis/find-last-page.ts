@@ -3,7 +3,7 @@ import { fetchPage } from "./fetch-page.js";
 
 type MemoizedFetch = (page: number) => Promise<SlackmojiEntry[]>;
 
-const memoizedFetch = (): MemoizedFetch => {
+const memoizedFetch = (signal?: AbortSignal): MemoizedFetch => {
 	const cache = new Map<number, SlackmojiEntry[]>();
 
 	return async (page: number) => {
@@ -11,7 +11,7 @@ const memoizedFetch = (): MemoizedFetch => {
 			return cache.get(page) ?? [];
 		}
 
-		const results = await fetchPage(page);
+		const results = await fetchPage(page, signal);
 		cache.set(page, results);
 		return results;
 	};
@@ -19,12 +19,14 @@ const memoizedFetch = (): MemoizedFetch => {
 
 type FindLastPageOptions = {
 	floor?: number;
+	signal?: AbortSignal;
 };
 
 const findLastPage = async ({
 	floor = 0,
+	signal,
 }: FindLastPageOptions = {}): Promise<number> => {
-	const fetch = memoizedFetch();
+	const fetch = memoizedFetch(signal);
 
 	const ensureFirstPageExists = async () => {
 		const firstPage = await fetch(0);

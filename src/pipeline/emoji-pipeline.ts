@@ -94,6 +94,7 @@ type EmojiPipelineOptions = {
 	category?: string | null;
 	downloadConcurrency?: number | null;
 	pageConcurrency?: number | null;
+	signal?: AbortSignal;
 	onEvent?: (event: EmojiPipelineEvent) => void;
 };
 
@@ -120,15 +121,21 @@ const createEmojiPipeline = ({
 	onEvent,
 	downloadConcurrency,
 	pageConcurrency,
+	signal: externalSignal,
 }: EmojiPipelineOptions): EmojiPipeline => {
 	const abortController = new AbortController();
-	const { signal } = abortController;
+	const signal = externalSignal
+		? AbortSignal.any([abortController.signal, externalSignal])
+		: abortController.signal;
+	let failed = false;
 
 	const emit = (event: EmojiPipelineEvent): void => {
 		if (signal.aborted) {
 			return;
 		}
 
+		if (event.type === "error" || event.type === "download-error")
+			failed = true;
 		onEvent?.(event);
 	};
 
@@ -137,6 +144,7 @@ const createEmojiPipeline = ({
 		const outputDir = path.join(rootDir, "emojis");
 
 		await fsPromises.mkdir(outputDir, { recursive: true });
+		const realOutputDir = await fsPromises.realpath(outputDir);
 
 		if (signal.aborted) {
 			return;
@@ -158,7 +166,6 @@ const createEmojiPipeline = ({
 			if (Number.isFinite(parsedLimit)) {
 				if (parsedLimit <= 0) {
 					emit({ type: "page-total", total: 0 });
-					emit({ type: "status", stage: "complete" });
 					return;
 				}
 
@@ -186,8 +193,7 @@ const createEmojiPipeline = ({
 				return inFlightPages.get(pageIndex) ?? Promise.resolve([]);
 			}
 
-			const task = fetchPage(pageIndex)
-				.then((results) => (Array.isArray(results) ? results : []))
+			const task = fetchPage(pageIndex, signal)
 				.then((normalized) => {
 					pageResultsCache.set(pageIndex, normalized);
 					return normalized;
@@ -209,26 +215,20 @@ const createEmojiPipeline = ({
 				: Promise.resolve<number | null>(null);
 
 		const lastPageProbePromise = (async (): Promise<void> => {
+			// A user limit is a cap, not evidence that its last page exists.
+			if (maxPages !== null) return;
 			try {
-				let targetIndex: number;
-				if (maxPages !== null) {
-					targetIndex = Math.max(maxPages - 1, 0);
-				} else {
-					const remoteHint = await remoteHintPromise;
-					const combinedHint = Math.max(
-						MIN_LAST_PAGE_INDEX,
-						storedLastPageIndex ?? MIN_LAST_PAGE_INDEX,
-						remoteHint ?? MIN_LAST_PAGE_INDEX,
-					);
-					targetIndex = await findLastPage({ floor: combinedHint });
-				}
-
-				const _results = await fetchPageAndCache(targetIndex);
+				const remoteHint = await remoteHintPromise;
+				const combinedHint = Math.max(
+					MIN_LAST_PAGE_INDEX,
+					storedLastPageIndex ?? MIN_LAST_PAGE_INDEX,
+					remoteHint ?? MIN_LAST_PAGE_INDEX,
+				);
+				const targetIndex = await findLastPage({ floor: combinedHint, signal });
 				if (signal.aborted) {
 					return;
 				}
 
-				finalLastPageIndex = targetIndex;
 				const totalPages = targetIndex + 1;
 
 				if (knownTotal === null || knownTotal < totalPages) {
@@ -278,6 +278,12 @@ const createEmojiPipeline = ({
 			}
 
 			await fsPromises.mkdir(dir, { recursive: true });
+			const realDir = await fsPromises.realpath(dir);
+			if (path.dirname(realDir) !== realOutputDir) {
+				throw new Error(
+					`Category directory escapes the output directory: ${dir}`,
+				);
+			}
 			ensuredDirectories.add(dir);
 		};
 
@@ -366,7 +372,7 @@ const createEmojiPipeline = ({
 					try {
 						transferStartedAt = performance.now();
 						await downloadImage(emoji.url, destination.fullPath, {
-							maxRetries: 2,
+							signal,
 						});
 
 						if (signal.aborted) {
@@ -522,21 +528,15 @@ const createEmojiPipeline = ({
 							pageAdaptive.recordSuccess(performance.now() - fetchStartedAt);
 						}
 
-						const normalizedResults = Array.isArray(pageResults)
-							? pageResults
-							: [];
-
-						if (normalizedResults.length === 0) {
+						if (pageResults.length === 0) {
 							endReached = true;
-							if (pageIndex > 0) {
-								finalLastPageIndex = pageIndex - 1;
-							}
 							updatePageTotal(pageIndex);
 							return;
 						}
+						finalLastPageIndex = Math.max(finalLastPageIndex ?? 0, pageIndex);
 
 						const prepared = buildDownloadTargets(
-							normalizedResults,
+							pageResults,
 							category,
 							outputDir,
 						);
@@ -584,6 +584,9 @@ const createEmojiPipeline = ({
 							pageAdaptive.recordFailure(performance.now() - fetchStartedAt);
 						}
 
+						// Do not skip a failed page and report a complete listing, or
+						// keep requesting pages indefinitely during an outage.
+						endReached = true;
 						const message = formatErrorMessage(error);
 						console.error(`Failed to fetch page ${pageIndex}: ${message}`);
 						emit({ type: "error", error });
@@ -659,7 +662,7 @@ const createEmojiPipeline = ({
 		await Promise.allSettled(downloadTasks);
 		await lastPageProbePromise;
 
-		if (!signal.aborted && finalLastPageIndex !== null) {
+		if (!signal.aborted && !failed && finalLastPageIndex !== null) {
 			try {
 				await writeRunMetadata(outputDir, {
 					lastPage: finalLastPageIndex,
@@ -668,22 +671,25 @@ const createEmojiPipeline = ({
 				console.error(`Failed to write metadata: ${formatErrorMessage(error)}`);
 			}
 		}
-
-		if (!signal.aborted) {
-			emit({ type: "status", stage: "complete" });
-		}
 	};
 
 	return {
-		start: () =>
-			run().catch((error) => {
-				if (signal.aborted) {
-					return;
+		start: async () => {
+			try {
+				await run();
+			} catch (error) {
+				if (!signal.aborted) {
+					emit({ type: "error", error });
+					throw error;
 				}
-
-				emit({ type: "error", error });
-				throw error;
-			}),
+			} finally {
+				if (signal.aborted) {
+					onEvent?.({ type: "error", error: new Error("Download cancelled.") });
+				}
+				// Completion means all work settled, not that all work succeeded.
+				onEvent?.({ type: "status", stage: "complete" });
+			}
+		},
 		stop: () => abortController.abort(),
 	};
 };

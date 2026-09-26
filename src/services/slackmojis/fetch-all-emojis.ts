@@ -1,7 +1,6 @@
 import type { SlackmojiEntry } from "../../types/slackmoji.js";
 import { fetchAllPageConcurrency } from "./config.js";
 import { fetchPage } from "./fetch-page.js";
-import { MIN_LAST_PAGE_INDEX } from "./last-page-hint.js";
 
 const DEFAULT_PAGE_CONCURRENCY = fetchAllPageConcurrency;
 
@@ -24,48 +23,43 @@ const sanitizeLimit = (limit: unknown): number | null => {
 
 type FetchAllEmojisOptions = {
 	limit?: number | null;
+	// Retained for callers, but a stale hint must never cap the listing.
 	lastPageHint?: number | null;
 	concurrency?: number;
+	signal?: AbortSignal;
 };
 
 const fetchAllEmojis = async ({
 	limit,
-	lastPageHint,
 	concurrency = DEFAULT_PAGE_CONCURRENCY,
+	signal,
 }: FetchAllEmojisOptions): Promise<SlackmojiEntry[]> => {
 	const maxPages = sanitizeLimit(limit);
-	const effectiveLimit =
-		maxPages !== null
-			? maxPages
-			: Number.isFinite(lastPageHint) && (lastPageHint as number) >= 0
-				? Math.floor(lastPageHint as number) + 1
-				: null;
-	const clampedLimit =
-		effectiveLimit !== null
-			? Math.max(effectiveLimit, MIN_LAST_PAGE_INDEX + 1)
-			: null;
+	signal?.throwIfAborted();
 	if (maxPages === 0) {
 		return [];
 	}
 
 	const safeConcurrency =
 		Number.isFinite(concurrency) && concurrency > 0
-			? Math.floor(concurrency)
+			? Math.max(1, Math.floor(concurrency))
 			: DEFAULT_PAGE_CONCURRENCY;
 
 	const pages: SlackmojiEntry[][] = [];
 	let cursor = 0;
 	let discoveredEnd: number | null = null;
+	let failed = false;
 
 	const workers = Array.from(
 		{
 			length:
-				clampedLimit !== null
-					? Math.min(safeConcurrency, clampedLimit)
+				maxPages !== null
+					? Math.min(safeConcurrency, maxPages)
 					: safeConcurrency,
 		},
 		async () => {
-			while (true) {
+			while (!failed) {
+				signal?.throwIfAborted();
 				if (discoveredEnd !== null && cursor >= discoveredEnd) {
 					break;
 				}
@@ -74,14 +68,16 @@ const fetchAllEmojis = async ({
 					break;
 				}
 
-				if (clampedLimit !== null && cursor >= clampedLimit) {
-					break;
-				}
-
 				const pageIndex = cursor;
 				cursor += 1;
 
-				const normalized = await fetchPage(pageIndex);
+				let normalized: SlackmojiEntry[];
+				try {
+					normalized = await fetchPage(pageIndex, signal);
+				} catch (error) {
+					failed = true;
+					throw error;
+				}
 
 				if (normalized.length === 0) {
 					if (discoveredEnd === null || pageIndex < discoveredEnd) {
@@ -95,16 +91,17 @@ const fetchAllEmojis = async ({
 		},
 	);
 
-	await Promise.all(workers);
+	const outcomes = await Promise.allSettled(workers);
+	const failure = outcomes.find((outcome) => outcome.status === "rejected");
+	if (failure?.status === "rejected") throw failure.reason;
+	signal?.throwIfAborted();
 
 	const effectiveEnd =
 		discoveredEnd !== null
 			? discoveredEnd
 			: maxPages !== null
 				? maxPages
-				: clampedLimit !== null
-					? clampedLimit
-					: pages.length;
+				: pages.length;
 
 	return pages.slice(0, effectiveEnd).filter(Boolean).flat();
 };

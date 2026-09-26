@@ -28,9 +28,7 @@ const parseCategories = (value: unknown): string[] => {
 	}
 
 	const normalized = value
-		.map((category) =>
-			typeof category === "string" ? category.trim() : "",
-		)
+		.map((category) => (typeof category === "string" ? category.trim() : ""))
 		.filter((name) => name.length > 0);
 
 	const unique = Array.from(new Set(normalized));

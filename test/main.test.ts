@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { Agent, MockAgent, setGlobalDispatcher } from "undici";
 import {
 	afterAll,
 	afterEach,
@@ -9,7 +10,6 @@ import {
 	expect,
 	test,
 } from "vitest";
-import { Agent, MockAgent, setGlobalDispatcher } from "undici";
 import {
 	buildDownloadTargets,
 	extractEmojiName,
@@ -213,11 +213,17 @@ test.sequential(
 );
 
 test("valid categories mirror bundled metadata", () => {
-	const metadataPath = path.join(projectRoot, "data", "slackmojis-metadata.json");
-	const raw = JSON.parse(
-		fs.readFileSync(metadataPath, "utf8"),
-	) as { categories?: string[] };
-	const expectedCategories = Array.isArray(raw.categories) ? raw.categories : [];
+	const metadataPath = path.join(
+		projectRoot,
+		"data",
+		"slackmojis-metadata.json",
+	);
+	const raw = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as {
+		categories?: string[];
+	};
+	const expectedCategories = Array.isArray(raw.categories)
+		? raw.categories
+		: [];
 
 	expect(getValidCategories()).toEqual(expectedCategories);
 });
@@ -237,3 +243,22 @@ test.sequential("parse a url to obtain an emoji name", () => {
 
 	expect(extracted).toBe("0.gif");
 });
+
+test.sequential(
+	"a double-slash URL path cannot change the download origin",
+	async () => {
+		emojiCdnPool
+			.intercept({
+				method: "GET",
+				path: /^\/\/untrusted\.example\/image\.gif\?version=1$/,
+			})
+			.reply(200, "cdn image");
+		const destination = path.join(downloadDir, "double-slash.gif");
+		await downloadImage(
+			"https://emojis.slackmojis.com//untrusted.example/image.gif?version=1",
+			destination,
+			{ maxRetries: 0 },
+		);
+		expect(fs.readFileSync(destination, "utf8")).toBe("cdn image");
+	},
+);

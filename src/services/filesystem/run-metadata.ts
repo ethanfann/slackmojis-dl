@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { writeJsonAtomically } from "./write-json.js";
 
 type RunMetadata = {
 	lastPage?: number;
@@ -43,7 +44,7 @@ const writeRunMetadata = async (
 		updatedAt: new Date().toISOString(),
 	};
 
-	await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+	await writeJsonAtomically(filePath, payload);
 };
 
 export { readRunMetadata, writeRunMetadata };

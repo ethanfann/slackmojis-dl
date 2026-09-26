@@ -1,4 +1,4 @@
-import { Box, Static, Text } from "ink";
+import { Box, Static, Text, useApp, useInput, useStdin } from "ink";
 import React, { type FC } from "react";
 import {
 	type DownloaderState,
@@ -26,6 +26,9 @@ type AppProps = {
 	pageConcurrency?: number | null;
 	downloadConcurrency?: number | null;
 	onSummary?: SummaryHandler | null;
+	signal?: AbortSignal;
+	onCancel?: () => void;
+	onComplete?: (hasErrors: boolean) => void;
 };
 
 const numberFormatter = new Intl.NumberFormat("en-US");
@@ -95,13 +98,26 @@ const App: FC<AppProps> = ({
 	pageConcurrency = null,
 	downloadConcurrency = null,
 	onSummary = null,
+	signal,
+	onCancel,
+	onComplete,
 }) => {
+	const { exit } = useApp();
+	const { isRawModeSupported } = useStdin();
+	useInput(
+		(input, key) => {
+			if (input === "c" && key.ctrl) onCancel?.();
+		},
+		{ isActive: Boolean(isRawModeSupported && onCancel) },
+	);
+
 	const downloaderState: DownloaderState = useEmojiDownloader({
 		dest,
 		limit,
 		category: categoryName,
 		pageConcurrency,
 		downloadConcurrency,
+		signal,
 	});
 
 	const {
@@ -120,6 +136,15 @@ const App: FC<AppProps> = ({
 
 	const downloadCount = downloads.length;
 	const errorCount = errors.length;
+	React.useEffect(() => {
+		if (!completed) return;
+		const immediate = setImmediate(() => {
+			onComplete?.(errorCount > 0 || status === "error");
+			exit();
+		});
+		return () => clearImmediate(immediate);
+	}, [completed, errorCount, status, onComplete, exit]);
+
 	const latestErrorEntry = errorCount > 0 ? errors[errorCount - 1] : null;
 	const processedEmojis = downloadCount + errorCount;
 	const formattedElapsed =

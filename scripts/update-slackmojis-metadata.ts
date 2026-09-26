@@ -2,13 +2,18 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getBundledMetadata } from "../src/data/bundled-metadata.js";
 import { fetchAllEmojis } from "../src/services/slackmojis/fetch-all-emojis.js";
 import { findLastPage } from "../src/services/slackmojis/find-last-page.js";
 import type { SlackmojiEntry } from "../src/types/slackmoji.js";
-import { getBundledMetadata } from "../src/data/bundled-metadata.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const metadataPath = path.join(__dirname, "..", "data", "slackmojis-metadata.json");
+const metadataPath = path.join(
+	__dirname,
+	"..",
+	"data",
+	"slackmojis-metadata.json",
+);
 
 const normalizeCategoryName = (value: unknown): string | null => {
 	if (typeof value !== "string") {

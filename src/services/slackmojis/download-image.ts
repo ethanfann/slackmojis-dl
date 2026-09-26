@@ -1,19 +1,10 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import { pipeline } from "node:stream/promises";
+import { setTimeout as wait } from "node:timers/promises";
 import { getStreamClient } from "./client.js";
 import { slackmojisDownloadConfig } from "./config.js";
-
-const wait = (ms: number): Promise<void> =>
-	new Promise((resolve) => setTimeout(resolve, ms));
-
-const toRelativePath = (inputUrl: string): string => {
-	try {
-		const parsed = new URL(inputUrl);
-		return `${parsed.pathname}${parsed.search || ""}`;
-	} catch {
-		return inputUrl.startsWith("/") ? inputUrl : `/${inputUrl}`;
-	}
-};
 
 const isNodeError = (error: unknown): error is NodeJS.ErrnoException =>
 	error !== null && typeof error === "object" && "code" in error;
@@ -31,6 +22,7 @@ const removePartialFile = async (filePath: string): Promise<void> => {
 type DownloadOptions = {
 	maxRetries?: number;
 	retryDelayMs?: number;
+	signal?: AbortSignal;
 };
 
 const calculateBackoffDelay = (
@@ -69,28 +61,50 @@ const downloadImage = async (
 	let lastError: unknown = null;
 
 	while (attempt <= maxRetries) {
+		options.signal?.throwIfAborted();
+		const partialPath = path.join(
+			path.dirname(destination),
+			`.slackmojis-${randomUUID()}.part`,
+		);
 		try {
-			const response = await client.get(toRelativePath(url));
-			await pipeline(response.data, fs.createWriteStream(destination));
+			const response = await client.get(url, {
+				signal: options.signal,
+			});
+			await pipeline(
+				response.data,
+				fs.createWriteStream(partialPath, { flags: "wx" }),
+				{ signal: options.signal },
+			);
+			if ((await fs.promises.stat(partialPath)).size === 0) {
+				throw new Error("Received an empty image response.");
+			}
+			options.signal?.throwIfAborted();
+			// Publish only complete files; unlike rename, link never overwrites a
+			// destination created by another run (or follows a destination symlink).
+			await fs.promises.link(partialPath, destination);
 			return destination;
 		} catch (error) {
 			lastError = error;
-			await removePartialFile(destination);
+			options.signal?.throwIfAborted();
 			attempt += 1;
 
-			if (attempt > maxRetries) {
+			if (
+				attempt > maxRetries ||
+				(isNodeError(error) && error.code === "EEXIST")
+			) {
 				break;
 			}
-
-			const delayMs = calculateBackoffDelay(retryDelayMs, attempt);
-			await wait(delayMs);
+		} finally {
+			await removePartialFile(partialPath);
 		}
+
+		const delayMs = calculateBackoffDelay(retryDelayMs, attempt);
+		await wait(delayMs, undefined, { signal: options.signal });
 	}
 
-	throw new Error(
-		`Failed to download ${url} after ${maxRetries + 1} attempts.`,
-		{ cause: lastError },
-	);
+	throw new Error(`Failed to download ${url} after ${attempt} attempts.`, {
+		cause: lastError,
+	});
 };
 
 export { downloadImage };
